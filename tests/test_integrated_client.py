@@ -44,6 +44,12 @@ class IntegratedClientTests(unittest.TestCase):
                         self.assertEqual(files.read_frame(login, stop)[:4], struct.pack('<I', 6))
                         self.assertEqual(files.read_frame(tasks, stop), struct.pack('<I', 6))
                         self.assertEqual(files.read_frame(tasks, stop), struct.pack('<I', 7))
+                        task = bytearray(0x4d0)
+                        task[0x200:0x209] = b'127.0.0.1'
+                        struct.pack_into('<H', task, 0x2a0, data_port)
+                        task[0x2a2:0x2a6] = b'test'
+                        struct.pack_into('<I', task, 0x2c4, 9)
+                        tasks.sendall(frame(3, task))
                         with socket.create_connection(('127.0.0.1', data_port), timeout=2) as sender:
                             name, content = b'example.txt', b'integrated transfer'
                             sender.sendall(frame(0, struct.pack('<QI', len(content), len(name)) + name)
@@ -52,6 +58,14 @@ class IntegratedClientTests(unittest.TestCase):
                             sender.sendall(frame(4))
                             self.assertEqual(sender.recv(4), struct.pack('<I', 2))
                         self.assertEqual(next(Path(folder).rglob('example.txt')).read_bytes(), content)
+                        report = files.read_frame(tasks, stop)
+                        self.assertEqual(struct.unpack_from('<II', report), (5, 3))
+                        self.assertEqual(report[8:0x408], bytes(1024))
+                        self.assertEqual(report[0x408:0x458], b'127.0.0.1' + bytes(71))
+                        self.assertEqual(struct.unpack_from('<I', report, 0x458)[0], 9)
+                        saved = next(Path(folder).rglob('example.txt')).parent
+                        self.assertEqual(report[0x45c:].decode('utf-16le'), str(saved) + '\\\0')
+                        self.assertEqual(files.read_frame(tasks, stop), struct.pack('<I', 7))
                 finally:
                     worker.join(6)
                 self.assertFalse(worker.is_alive())

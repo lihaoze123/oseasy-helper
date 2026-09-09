@@ -6,6 +6,7 @@ import threading
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
+from unittest.mock import Mock
 
 from oseasy_helper import files
 
@@ -24,6 +25,28 @@ def header(name, size):
 
 
 class FileTests(unittest.TestCase):
+    def test_completion_not_reused_after_disconnect_or_new_task(self):
+        reports = files.NodeReports()
+        reports.assign(('first', 0))
+        first = reports.snapshot()
+        reports.reset()
+        self.assertFalse(reports.complete(first, self.root))
+        reports.assign(('second', 0))
+        second = reports.snapshot()
+        self.assertFalse(reports.complete(first, self.root))
+        self.assertTrue(reports.complete(second, self.root))
+        reports.reset()
+        sock = Mock()
+        reports.send(sock, '127.0.0.1', self.emit)
+        sock.sendall.assert_not_called()
+
+    def test_failed_end_ack_does_not_report_success(self):
+        sock = Mock()
+        sock.recv.side_effect = [struct.pack('<I', 4), struct.pack('<I', 4)]
+        sock.sendall.side_effect = OSError('Connection lost')
+        self.assertFalse(files.receive_connection(sock, self.root, self.stop, self.emit))
+        self.assertEqual(self.events[-1]['event'], 'data_error')
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

@@ -184,6 +184,7 @@ def receive_connection(sock, root, stop, emit):
                 sock.sendall(struct.pack('<I', ack))
     except (OSError, EOFError, ValueError) as error:
         emit('data_error', error=str(error), sample_hex=payload[:256].hex())
+        return False
     finally:
         transfer.close()
     return transfer.done
@@ -205,9 +206,68 @@ def node_message(payload, local, teacher, data_port, emit):
     emit('receive_task', local=task_local, peer=peer, port=port,
          token=text_at(0x2a2, 0x2c4),
          matches_listener=(task_local == local and port == data_port))
+    if task_local == local and port == data_port:
+        return (text_at(0x2a2, 0x2c4), struct.unpack_from('<I', task, 0x2c4)[0])
 
 
-def node_loop(args, stop, emit):
+def completion_report(local, subtype, folder):
+    """Native node opcode 5: success, empty detail, IP, subtype, UTF-16 path."""
+    path = (str(Path(folder).absolute()).rstrip('\\/') + '\\' + '\0').encode('utf-16le')
+    frame = bytearray(0x460 + len(path))
+    struct.pack_into('<III', frame, 0, len(frame) - 4, 5, 3)
+    ip = local.encode('ascii')
+    if len(ip) >= 80:
+        raise ValueError('Local address exceeds report field')
+    frame[0x40c:0x40c + len(ip)] = ip
+    struct.pack_into('<I', frame, 0x45c, subtype)
+    frame[0x460:] = path
+    return bytes(frame)
+
+
+class NodeReports:
+    """Associate a data transfer with one task on the current node connection."""
+    def __init__(self):
+        self.lock = threading.Condition()
+        self.task = None
+        self.pending = None
+
+    def reset(self):
+        with self.lock:
+            self.task = self.pending = None
+
+    def assign(self, task):
+        with self.lock:
+            self.task = (object(), *task)
+            self.pending = None
+            self.lock.notify_all()
+
+    def snapshot(self):
+        with self.lock:
+            # Task and data arrive on different sockets; allow the node worker
+            # to process an already-arriving task before taking its identity.
+            self.lock.wait_for(lambda: self.task is not None, timeout=1)
+            return self.task
+
+    def complete(self, task, folder):
+        with self.lock:
+            if task is None or task is not self.task:
+                return False
+            self.pending = (task, folder)
+            return True
+
+    def send(self, sock, local, emit):
+        with self.lock:
+            if self.pending is None:
+                return
+            task, folder = self.pending
+            sock.sendall(completion_report(local, task[2], folder))
+            sock.sendall(READY)
+            self.task = self.pending = None
+        emit('node_report_sent', status=3, token=task[1], directory=str(folder))
+
+
+def node_loop(args, stop, emit, reports=None):
+    reports = reports or NodeReports()
     last_error = None
     while not stop.is_set():
         try:
@@ -219,6 +279,7 @@ def node_loop(args, stop, emit):
                 last_hello = -float('inf')
                 def hello():
                     nonlocal last_hello
+                    reports.send(sock, args.local, emit)
                     if time.monotonic() - last_hello >= 20:
                         sock.sendall(HELLO)
                         last_hello = time.monotonic()
@@ -233,11 +294,15 @@ def node_loop(args, stop, emit):
                 while not stop.is_set():
                     payload = read_frame(sock, stop, limit=MAX_NODE_FRAME, tick=hello, idle=None)
                     emit('node_frame', length=len(payload), sample_hex=payload[:4096].hex())
-                    node_message(payload, args.local, args.teacher, args.data_port, emit)
+                    task = node_message(payload, args.local, args.teacher, args.data_port, emit)
+                    if task is not None:
+                        reports.assign(task)
         except (OSError, EOFError, ValueError) as error:
             if not stop.is_set() and str(error) != last_error:
                 emit('node_retry', error=str(error), retry_seconds=5)
                 last_error = str(error)
+        finally:
+            reports.reset()
         stop.wait(5)
 
 
@@ -259,7 +324,7 @@ class Events:
                 self.bytes += len(line) + 1
 
 
-def accept_loop(listener, args, root, stop, events):
+def accept_loop(listener, args, root, stop, events, reports):
     try:
         while not stop.is_set():
             try:
@@ -271,9 +336,13 @@ def accept_loop(listener, args, root, stop, events):
                     events('peer_rejected', peer=peer[0])
                     continue
                 folder = Path(tempfile.mkdtemp(prefix='transfer-', dir=root))
+                task = reports.snapshot()
                 events('data_connected', peer=peer[0], directory=folder.name)
-                receive_connection(sock, folder, stop,
-                                   lambda event, **fields: events(event, transfer=folder.name, **fields))
+                complete = receive_connection(sock, folder, stop,
+                    lambda event, **fields: events(event, transfer=folder.name, **fields))
+                if complete and not reports.complete(task, folder):
+                    events('node_report_skipped', directory=str(folder),
+                           reason='No matching task on the current node connection')
     except Exception as error:
         events('listener_error', error=str(error))
         stop.set()
@@ -293,11 +362,12 @@ def receiver(args, stop):
         root = Path(tempfile.mkdtemp(prefix=time.strftime('%Y%m%d-%H%M%S-'), dir=output))
         events = Events(root / 'events.jsonl')
         workers = []
+        reports = NodeReports()
         try:
             events('listening', local=args.local, port=args.data_port, teacher=args.teacher, output=str(root))
             for target, arguments, name in (
-                (node_loop, (args, stop, events), 'file-node'),
-                (accept_loop, (listener, args, root, stop, events), 'file-data'),
+                (node_loop, (args, stop, events, reports), 'file-node'),
+                (accept_loop, (listener, args, root, stop, events, reports), 'file-data'),
             ):
                 worker = threading.Thread(target=target, args=arguments, name=name)
                 worker.start()
