@@ -49,6 +49,8 @@ def parser():
     login.add_argument("--teacher", type=ipv4, required=True)
     login.add_argument("--local", type=ipv4, required=True)
     login.add_argument("--port", type=port, default=9003)
+    login.add_argument("--receive-dir", default="received",
+                       help="Directory offered for file reception (default: received); use the same files --output")
     login.add_argument("--mock-thumbnail", action="store_true",
                        help="Reply to 64x64 thumbnail requests with a fixed MOCK test image")
     manage = commands.add_parser("control", help="Windows: inspect, suspend or stop the local student",

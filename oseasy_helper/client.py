@@ -53,9 +53,26 @@ def thumbnail_reply(fields, jpeg):
     return struct.pack('<I', len(payload)) + payload
 
 
+def directory_reply(fields, receive_dir):
+    """Offer only our receiving directory, with no disk or child enumeration."""
+    if fields['command'] != 87 or fields['extra'] != 1:
+        return None
+    path = (str(receive_dir) + '\0').encode('utf-16-le')
+    if len(path) > 0x208:
+        raise ValueError('Receiving directory exceeds the protocol path limit')
+    # Native directory response: 64 entry slots, disk list, current path.
+    # Zero counts are intentional: only the current receive directory is offered.
+    body = bytearray(0x285b0)
+    body[0x283a8:0x283a8 + len(path)] = path
+    payload = struct.pack('<IIII', 88, 0, 0, len(body)) + body
+    return struct.pack('<I', len(payload)) + payload
+
+
 def run(args):
     stop = threading.Event()
     mac = interface_mac(args.local)
+    receive_dir = Path(args.receive_dir).resolve()
+    receive_dir.mkdir(parents=True, exist_ok=True)
     jpeg = (Path(__file__).with_name('mock-thumbnail.jpg').read_bytes()
             if args.mock_thumbnail else None)
     def emit(event, **fields):
@@ -73,6 +90,10 @@ def run(args):
             while True:
                 fields = message(read_frame(sock, stop, idle=None))
                 emit('management_message', **fields)
+                reply = directory_reply(fields, receive_dir)
+                if reply is not None:
+                    sock.sendall(reply)
+                    emit('receive_directory_sent', path=str(receive_dir))
                 if jpeg is not None:
                     reply = thumbnail_reply(fields, jpeg)
                     if reply is not None:

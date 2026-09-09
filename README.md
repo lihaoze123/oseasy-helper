@@ -82,6 +82,8 @@ uv run oseasy-helper files --teacher 203.0.113.10 --local 192.0.2.20
 
 ## 管理登录（实验原型）
 
+现场已确认 `--mock-thumbnail` 回传的固定测试图可在教师界面显示。目录查询应答也已加入：收到命令 87 的查询后，用命令 88 提供 `--receive-dir` 指定的收件目录（默认 `received`），不枚举磁盘或子目录。此目录应答尚待教师界面实测；请另开 `files` 接收进程，并让它的 `--output` 与 `--receive-dir` 一致。实际文件仍保存在 `files` 创建的本次运行子目录内。
+
 退出官方学生端后，在一个终端运行：
 
 ```powershell

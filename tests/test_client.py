@@ -1,10 +1,21 @@
 import struct
 import unittest
 
-from oseasy_helper.client import login_packet, message, thumbnail_reply
+from oseasy_helper.client import login_packet, message, thumbnail_reply, directory_reply
 
 
 class ClientTests(unittest.TestCase):
+    def test_directory_response_layout_and_no_other_operations(self):
+        reply = directory_reply(dict(command=87, extra=1), r'C:\received')
+        self.assertEqual(struct.unpack_from('<IIIII', reply),
+                         (0x285c0, 88, 0, 0, 0x285b0))
+        body = reply[20:]
+        self.assertEqual(len(body), 0x285b0)
+        self.assertEqual(body[:0x283a8], bytes(0x283a8))
+        self.assertEqual(body[0x283a8:].decode('utf-16-le').rstrip('\0'), r'C:\received')
+        self.assertIsNone(directory_reply(dict(command=87, extra=2), r'C:\received'))
+        self.assertIsNone(directory_reply(dict(command=16, extra=1), r'C:\received'))
+
     def test_mock_thumbnail_only_answers_observed_request(self):
         jpeg = b'\xff\xd8test\xff\xd9'
         reply = thumbnail_reply(dict(command=89, kind=64), jpeg)
