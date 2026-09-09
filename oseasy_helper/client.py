@@ -1,6 +1,5 @@
-"""Experimental management login; received commands are observed, never executed."""
+"""Experimental login and passive file receiver; ignores remote control commands."""
 import getpass
-import json
 from pathlib import Path
 import re
 import socket
@@ -10,7 +9,7 @@ import time
 
 import psutil
 
-from .files import read_frame
+from .files import read_frame, receiver
 
 
 def interface_mac(local):
@@ -75,10 +74,7 @@ def run(args):
     receive_dir.mkdir(parents=True, exist_ok=True)
     jpeg = (Path(__file__).with_name('mock-thumbnail.jpg').read_bytes()
             if args.mock_thumbnail else None)
-    def emit(event, **fields):
-        print(json.dumps(dict(time=time.strftime('%Y-%m-%dT%H:%M:%S%z'),
-                              event=event, **fields)), flush=True)
-    with socket.socket() as sock:
+    with receiver(args, stop) as emit, socket.socket() as sock:
         sock.bind((args.local, 0))
         sock.settimeout(5)
         sock.connect((args.teacher, args.port))

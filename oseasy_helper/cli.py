@@ -1,9 +1,9 @@
-"""The public CLI. Video, files and local control are independent commands."""
+"""The public CLI. Video, integrated client and local control commands."""
 import argparse
 import ipaddress
 import sys
 
-from . import client, control, files, video
+from . import client, control, video
 
 
 def ipv4(value):
@@ -35,22 +35,16 @@ def parser():
     live.add_argument("--local", type=ipv4, required=True, help="IPv4 address of your classroom-facing adapter")
     live.add_argument("--udp-port", type=port, default=7778, help="Destination UDP port (default: 7778)")
     live.add_argument("--http-port", type=port, default=17778, help="Local playback port (default: 17778)")
-    incoming = commands.add_parser("files", help="Experimental file receiver (Ctrl+C stops)",
-        description="Listen for teacher file data and connect to the file task node. "
-                    "Experimental: classroom task delivery still needs testing. Files are never executed.")
-    incoming.add_argument("--teacher", type=ipv4, required=True, help="Teacher IPv4; only this source is accepted")
-    incoming.add_argument("--local", type=ipv4, required=True, help="IPv4 address of your classroom-facing adapter")
-    incoming.add_argument("--output", default="received", help="Output directory (default: received)")
-    incoming.add_argument("--node-port", type=port, default=8555, help="Teacher task port (default: 8555)")
-    incoming.add_argument("--data-port", type=port, default=9100, help="Local receiving port (default: 9100)")
-    login = commands.add_parser("client", help="Experimental management login; observe commands only",
-        description="Log in using this computer's identity. Commands are logged, never executed. "
+    login = commands.add_parser("client", help="Experimental client with passive file reception",
+        description="Log in using this computer's identity. Receive files and respond to directory queries; control commands are ignored. "
                     "Online persistence and teacher acceptance still require testing.")
     login.add_argument("--teacher", type=ipv4, required=True)
     login.add_argument("--local", type=ipv4, required=True)
     login.add_argument("--port", type=port, default=9003)
     login.add_argument("--receive-dir", default="received",
-                       help="Directory offered for file reception (default: received); use the same files --output")
+                       help="Receiving directory (default: received)")
+    login.add_argument("--node-port", type=port, default=8555)
+    login.add_argument("--data-port", type=port, default=9100)
     login.add_argument("--mock-thumbnail", action="store_true",
                        help="Reply to 64x64 thumbnail requests with a fixed MOCK test image")
     manage = commands.add_parser("control", help="Windows: inspect, suspend or stop the local student",
@@ -65,7 +59,7 @@ def main(argv=None):
     root = parser()
     args = root.parse_args(argv)
     try:
-        if args.command in ("video", "files", "client"):
+        if args.command in ("video", "client"):
             for name in ("teacher", "local"):
                 address = ipaddress.IPv4Address(getattr(args, name))
                 if address.is_unspecified or address.is_multicast or address.is_reserved:
@@ -73,7 +67,7 @@ def main(argv=None):
             if args.command == "client":
                 client.run(args)
             else:
-                (video if args.command == "video" else files).receive(args)
+                video.receive(args)
         else:
             control.run(args.action)
     except (OSError, ValueError, RuntimeError) as error:

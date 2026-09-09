@@ -1,4 +1,5 @@
 """Experimental TCP file receiver for the researched 10.9 protocol."""
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -258,9 +259,30 @@ class Events:
                 self.bytes += len(line) + 1
 
 
-def receive(args):
-    stop = threading.Event()
-    output = Path(args.output).resolve()
+def accept_loop(listener, args, root, stop, events):
+    try:
+        while not stop.is_set():
+            try:
+                sock, peer = listener.accept()
+            except socket.timeout:
+                continue
+            with sock:
+                if peer[0] != args.teacher:
+                    events('peer_rejected', peer=peer[0])
+                    continue
+                folder = Path(tempfile.mkdtemp(prefix='transfer-', dir=root))
+                events('data_connected', peer=peer[0], directory=folder.name)
+                receive_connection(sock, folder, stop,
+                                   lambda event, **fields: events(event, transfer=folder.name, **fields))
+    except Exception as error:
+        events('listener_error', error=str(error))
+        stop.set()
+
+
+@contextmanager
+def receiver(args, stop):
+    """Bind before login; join both file workers when the client disconnects."""
+    output = Path(args.receive_dir).resolve()
     output.mkdir(parents=True, exist_ok=True)
     with socket.socket() as listener:
         if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
@@ -270,25 +292,20 @@ def receive(args):
         listener.settimeout(0.5)
         root = Path(tempfile.mkdtemp(prefix=time.strftime('%Y%m%d-%H%M%S-'), dir=output))
         events = Events(root / 'events.jsonl')
-        worker = threading.Thread(target=node_loop, args=(args, stop, events), name='file-node')
-        worker.start()
-        events('listening', local=args.local, port=args.data_port, teacher=args.teacher, output=str(root))
+        workers = []
         try:
-            while not stop.is_set():
-                try:
-                    sock, peer = listener.accept()
-                except socket.timeout:
-                    continue
-                with sock:
-                    if peer[0] != args.teacher:
-                        events('peer_rejected', peer=peer[0])
-                        continue
-                    folder = Path(tempfile.mkdtemp(prefix='transfer-', dir=root))
-                    events('data_connected', peer=peer[0], directory=folder.name)
-                    receive_connection(sock, folder, stop,
-                                       lambda event, **fields: events(event, transfer=folder.name, **fields))
+            events('listening', local=args.local, port=args.data_port, teacher=args.teacher, output=str(root))
+            for target, arguments, name in (
+                (node_loop, (args, stop, events), 'file-node'),
+                (accept_loop, (listener, args, root, stop, events), 'file-data'),
+            ):
+                worker = threading.Thread(target=target, args=arguments, name=name)
+                worker.start()
+                workers.append(worker)
+            yield events
         finally:
             stop.set()
-            worker.join()
+            for worker in workers:
+                worker.join()
             events('stopped')
             events.file.close()
