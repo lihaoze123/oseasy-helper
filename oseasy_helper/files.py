@@ -15,6 +15,7 @@ MAX_NODE_FRAME = 64 * 1024
 MAX_TRANSFER_BYTES = 8 * 1024**3
 MAX_ENTRIES = 10000
 HELLO = struct.pack('<II', 4, 6)
+READY = struct.pack('<II', 4, 7)
 
 
 def read_frame(sock, stop, *, limit=MAX_FRAME, tick=None, idle=60):
@@ -202,7 +203,7 @@ def node_message(payload, local, teacher, data_port, emit):
     port, = struct.unpack_from('<H', task, 0x2a0)
     emit('receive_task', local=task_local, peer=peer, port=port,
          token=text_at(0x2a2, 0x2c4),
-         matches_listener=(task_local == local and peer == teacher and port == data_port))
+         matches_listener=(task_local == local and port == data_port))
 
 
 def node_loop(args, stop, emit):
@@ -221,7 +222,12 @@ def node_loop(args, stop, emit):
                         sock.sendall(HELLO)
                         last_hello = time.monotonic()
                 hello()
+                # The native receiver announces that its local data listener is
+                # ready with opcode 7. The server does not assign a receive task
+                # after opcode 6 alone.
+                sock.sendall(READY)
                 emit('node_connected', host=args.teacher, port=args.node_port)
+                emit('node_ready', local=args.local, port=args.data_port)
                 last_error = None
                 while not stop.is_set():
                     payload = read_frame(sock, stop, limit=MAX_NODE_FRAME, tick=hello, idle=None)

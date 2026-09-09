@@ -173,9 +173,12 @@ class FileTests(unittest.TestCase):
                 with conn:
                     conn.settimeout(0.5)
                     self.assertEqual(files.read_frame(conn, self.stop), struct.pack('<I', 6))
+                    self.assertEqual(files.read_frame(conn, self.stop), struct.pack('<I', 7))
                     task = bytearray(0x4d0)
                     task[0x200:0x209] = b'127.0.0.1'
-                    task[0x250:0x259] = b'127.0.0.1'
+                    # Real tasks may name a teacher-internal sender node here;
+                    # the TCP peer check remains the security boundary.
+                    task[0x250:0x259] = b'127.0.0.2'
                     struct.pack_into('<H', task, 0x2a0, 19100)
                     task[0x2a2:0x2a6] = b'test'
                     conn.sendall(packet(2, task) + packet(3, task))
@@ -185,6 +188,7 @@ class FileTests(unittest.TestCase):
                 self.stop.set()
                 worker.join(4)
             self.assertFalse(worker.is_alive())
+            self.assertTrue(any(e['event'] == 'node_ready' for e in self.events))
             tasks = [e for e in self.events if e['event'] == 'receive_task']
             self.assertTrue(tasks[0]['matches_listener'])
             self.assertTrue(any(e['event'] == 'node_ignored' and e['opcode'] == 2 for e in self.events))
