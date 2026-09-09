@@ -93,7 +93,7 @@ mpv http://127.0.0.1:17778/live.ts
 
 ## 三、控制链路及本地管理
 
-研究中可见 MMPC 服务、Student、MultiClient、LissHelper 等进程；原管理链路观察过 TCP 9003，也观察过 MultiClient 使用 TCP 9002。视频则走独立的 UDP 组播与 ScreenRender 播放器。这解释了为什么独立接收视频在技术上可以不依赖原播放器窗口。
+研究中可见 MMPC 服务及其 `DeviceControl_x64.exe` 子进程，也观察到独立的 `LissHelper.exe` 与 `LISSNetInfoSniffer.exe`；Student、MultiClient 等进程是否出现取决于当前运行状态。原管理链路观察过 TCP 9003，也观察过 MultiClient 使用 TCP 9002。视频则走独立的 UDP 组播与 ScreenRender 播放器。这解释了为什么独立接收视频在技术上可以不依赖原播放器窗口。
 
 输入控制还涉及用户态输入模拟/钩子以及已加载的键盘过滤组件。曾观察到 KbFilter；其他组件的精确职责未完成逆向确认。改变 `ScreenRender` 全屏参数只影响窗口行为，不能证明键鼠锁定、输入注入或其他控制路径被关闭。
 
@@ -108,7 +108,7 @@ mpv http://127.0.0.1:17778/live.ts
 3. 再次查询状态；在广播自然存在时运行 `video`，检查画面与本机操作。
 4. 需要恢复时运行 `uv run oseasy-helper control start`；原学生端未自动出现则使用原入口启动，核对原客户端连接状态。
 
-`stop` 从 MMPC 注册路径取得安装目录，只处理目录范围内的 Student.exe、MultiClient.exe、LissHelper.exe，避免按同名进程全局结束。它不处理 ScreenRender，不设置 Disabled，不改注册表，不卸载任何驱动。已有原播放器窗口不会由这个命令自动关闭。
+`status` 从 MMPC 注册路径取得安装目录，按该目录和服务 PID 子进程树发现组件；即使普通终端无法读取受保护进程的路径，也能显示 MMPC 及其子进程。`stop` 停止 MMPC 服务后，只结束安装目录范围内的 Student、MultiClient、LissHelper、LISSNetInfoSniffer 和 DeviceControl 候选进程，避免按同名进程全局结束。它不处理 ScreenRender，不设置 Disabled，不改注册表，不卸载任何驱动。已有原播放器窗口不会由这个命令自动关闭。
 
 如果操作部分完成后失败，应先查询状态，再决定恢复。原服务已经被其他工具设置为 Disabled 时，`start` 可能失败；本 CLI 不擅自恢复未知的旧配置。拒绝访问时也不会追加提权绕过操作。
 

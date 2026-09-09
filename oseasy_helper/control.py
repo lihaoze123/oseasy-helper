@@ -11,15 +11,45 @@ try {
     $action = $env:OSEASY_HELPER_ACTION
     if ($action -notin @('status', 'start', 'stop')) { throw 'Unknown control action.' }
     $service = Get-CimInstance Win32_Service -Filter "Name='MMPC'"
-    $names = @('Student.exe', 'MultiClient.exe', 'LissHelper.exe')
-    $processes = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -in $names })
+    $serviceExe = $null
+    $root = $null
+    if ($service) {
+        $match = [regex]::Match($service.PathName, '(?i)^\s*(?:"(?<exe>[^"]+\.exe)"|(?<exe>.+?\.exe))(?:\s|$)')
+        if ($match.Success) {
+            $serviceExe = [IO.Path]::GetFullPath($match.Groups['exe'].Value)
+            $root = [IO.Path]::GetDirectoryName($serviceExe).TrimEnd('\') + '\'
+        }
+    }
+    $allProcesses = @(Get-CimInstance Win32_Process)
+    # Protected service processes can hide ExecutablePath from a normal terminal.
+    # Follow the service PID tree as a second, read-only discovery signal.
+    $serviceTree = [Collections.Generic.HashSet[uint32]]::new()
+    if ($service -and $service.ProcessId -gt 0) { $null = $serviceTree.Add([uint32]$service.ProcessId) }
+    do {
+        $changed = $false
+        foreach ($process in $allProcesses) {
+            if ($serviceTree.Contains([uint32]$process.ParentProcessId) -and
+                    $serviceTree.Add([uint32]$process.ProcessId)) { $changed = $true }
+        }
+    } while ($changed)
+    $processes = @($allProcesses | Where-Object {
+        $underRoot = $false
+        if ($root -and $_.ExecutablePath) {
+            try {
+                $underRoot = [IO.Path]::GetFullPath($_.ExecutablePath).StartsWith(
+                    $root, [StringComparison]::OrdinalIgnoreCase)
+            } catch { $underRoot = $false }
+        }
+        $underRoot -or $serviceTree.Contains([uint32]$_.ProcessId)
+    })
     if ($action -eq 'status') {
         [ordered]@{
             service = $(if ($service) {
-                $service | Select-Object Name, State, StartMode, PathName
+                $service | Select-Object Name, ProcessId, State, StartMode, PathName
             } else { $null })
-            candidates = @($processes | Select-Object Name, ProcessId, ExecutablePath)
-            note = 'Status only. A running service does not prove teacher connectivity or input protection.'
+            installRoot = $root
+            processes = @($processes | Select-Object Name, ProcessId, ParentProcessId, SessionId, ExecutablePath)
+            note = 'Read-only discovery by install path and MMPC process tree. A running service does not prove teacher connectivity or input protection.'
         } | ConvertTo-Json -Depth 4
         exit 0
     }
@@ -29,10 +59,9 @@ try {
         throw 'Run this command in an administrator terminal. No changes made.'
     }
     if (-not $service) { throw 'MMPC is not installed. No changes made.' }
-    $match = [regex]::Match($service.PathName, '(?i)^\s*(?:"(?<exe>[^"]+\.exe)"|(?<exe>.+?\.exe))(?:\s|$)')
-    if (-not $match.Success) { throw 'Cannot resolve the registered MMPC executable. No changes made.' }
-    $exe = [IO.Path]::GetFullPath($match.Groups['exe'].Value)
-    if ([IO.Path]::GetFileName($exe) -ine 'MMPC.exe' -or -not (Test-Path -LiteralPath $exe -PathType Leaf)) {
+    if (-not $serviceExe) { throw 'Cannot resolve the registered MMPC executable. No changes made.' }
+    if ([IO.Path]::GetFileName($serviceExe) -ine 'MMPC.exe' -or
+            -not (Test-Path -LiteralPath $serviceExe -PathType Leaf)) {
         throw 'Unexpected MMPC executable. No changes made.'
     }
     if ($action -eq 'start') {
@@ -41,15 +70,14 @@ try {
         Write-Output 'MMPC is running. Check the original student UI for its teacher connection.'
         exit 0
     }
-    $root = [IO.Path]::GetDirectoryName($exe).TrimEnd('\') + '\'
-    # Validate process paths before changing anything; never kill by name alone.
-    foreach ($process in $processes) {
-        if (-not $process.ExecutablePath) { throw 'Cannot inspect a candidate process path. No changes made.' }
-    }
     Stop-Service -Name MMPC
     (Get-Service MMPC).WaitForStatus('Stopped', [TimeSpan]::FromSeconds(15))
     # Fetch again after stopping the service; use a process handle and recheck its path.
-    $remaining = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -in $names })
+    $stopNames = @(
+        'Student.exe', 'MultiClient.exe', 'LissHelper.exe', 'LISSNetInfoSniffer.exe',
+        'DeviceControl_x64.exe', 'DeviceControl_x86.exe'
+    )
+    $remaining = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -in $stopNames })
     foreach ($process in $remaining) {
         if (-not $process.ExecutablePath) { throw 'Cannot inspect a remaining candidate process path.' }
         $path = [IO.Path]::GetFullPath($process.ExecutablePath)
@@ -62,7 +90,7 @@ try {
         }
     }
     $left = @(Get-CimInstance Win32_Process | Where-Object {
-        $_.Name -in $names -and $_.ExecutablePath -and
+        $_.Name -in $stopNames -and $_.ExecutablePath -and
         $_.ExecutablePath.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)
     })
     if ($left.Count -gt 0 -or (Get-Service MMPC).Status -ne 'Stopped') {
