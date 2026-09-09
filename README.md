@@ -3,23 +3,23 @@
 一个小型 CLI：接收噢易课堂广播视频，提供播放器地址；查询、临时启停本机学生端。Python 3.10+，运行时只使用标准库。
 
 ```text
-oseasy-helper -h
-oseasy-helper video -h
-oseasy-helper control -h
+uv run oseasy-helper -h
+uv run oseasy-helper video -h
+uv run oseasy-helper control -h
 ```
 
 `video` 去除私有 UDP 分片封装，重组 H.264，再封装为 MPEG-TS。**画面解码由 mpv / VLC 完成**。脚本没有窗口、录制、FFmpeg 调用或校验流程，也不安装驱动或自启项。
 
 ## 运行
 
-在仓库目录安装：
+使用 [uv](https://docs.astral.sh/uv/) 管理项目环境。在仓库目录运行：
 
 ```powershell
-python -m pip install .
-oseasy-helper -h
+uv sync --locked
+uv run oseasy-helper -h
 ```
 
-也可以不安装，直接在仓库目录使用 `python -m oseasy_helper`。
+后续命令均在仓库目录执行，无需手动激活虚拟环境。
 
 Windows 的 `control` 使用系统自带的 Windows PowerShell。`video` 基于标准 socket 编写，当前宿主验证环境是 Windows；其他系统的组播接收需要自行验证。
 
@@ -28,7 +28,7 @@ Windows 的 `control` 使用系统自带的 Windows PowerShell。`video` 基于�
 下面都是文档示例地址，必须替换为现场实际参数。`--local` 是连接课堂网络的本机网卡 IPv4；`--group` 是实际视频目的组播地址，不能仅凭教师 IP 推算。
 
 ```powershell
-oseasy-helper video --teacher 203.0.113.10 --local 192.0.2.20 --group 239.255.0.1
+uv run oseasy-helper video --teacher 203.0.113.10 --local 192.0.2.20 --group 239.255.0.1
 ```
 
 启动成功后，标准输出只有一个地址：
@@ -51,9 +51,9 @@ vlc http://127.0.0.1:17778/live.ts
 ## 本机控制管理
 
 ```powershell
-oseasy-helper control status
-oseasy-helper control stop
-oseasy-helper control start
+uv run oseasy-helper control status
+uv run oseasy-helper control stop
+uv run oseasy-helper control start
 ```
 
 | 命令 | 行为 |
@@ -76,7 +76,7 @@ oseasy-helper control start
 运行测试：
 
 ```powershell
-python -m unittest discover -s tests -v
+uv run python -m unittest discover -s tests -v
 ```
 
 测试使用人工数据和本机 HTTP，覆盖协议处理、输出结构和 CLI 入口，不执行控制启停。封装链路曾用标准解码器验证；此 CLI 尚未在真实广播期间复测，也未实际测试 mpv / VLC 客户端。

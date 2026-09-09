@@ -27,11 +27,11 @@ mpv / VLC 使用的是标准 HTTP MPEG-TS 输入方式，但尚未在这次研�
 
 ### 1. 准备入口和网络参数
 
-安装 Python 3.10+，在仓库目录运行：
+准备 uv 和 Python 3.10+，在仓库目录运行：
 
 ```powershell
-python -m pip install .
-oseasy-helper -h
+uv sync --locked
+uv run oseasy-helper -h
 ```
 
 需要三个参数：教师源 IPv4、本机课堂网卡 IPv4、广播目的组播 IPv4。组播地址应从实际广播中取得。
@@ -57,7 +57,7 @@ Get-CimInstance Win32_Process -Filter "Name='ScreenRender.exe'" | Select-Object 
 下面地址仅作示例：
 
 ```powershell
-oseasy-helper video --teacher 203.0.113.10 --local 192.0.2.20 --group 239.255.0.1 --udp-port 7778
+uv run oseasy-helper video --teacher 203.0.113.10 --local 192.0.2.20 --group 239.255.0.1 --udp-port 7778
 ```
 
 UDP socket 加入指定网卡的组播组，过滤教师源 IP，然后进入分片重组。成功启动会输出：
@@ -102,10 +102,10 @@ mpv http://127.0.0.1:17778/live.ts
 
 这是允许原学生端掉线时的模式。步骤均在本机进行：
 
-1. `oseasy-helper control status`：查看原服务和候选进程，记住运行状态。
-2. 如需停止，在管理员终端运行 `oseasy-helper control stop`。
+1. `uv run oseasy-helper control status`：查看原服务和候选进程，记住运行状态。
+2. 如需停止，在管理员终端运行 `uv run oseasy-helper control stop`。
 3. 再次查询状态；在广播自然存在时运行 `video`，检查画面与本机操作。
-4. 需要恢复时运行 `oseasy-helper control start`；原学生端未自动出现则使用原入口启动，核对原客户端连接状态。
+4. 需要恢复时运行 `uv run oseasy-helper control start`；原学生端未自动出现则使用原入口启动，核对原客户端连接状态。
 
 `stop` 从 MMPC 注册路径取得安装目录，只处理目录范围内的 Student.exe、MultiClient.exe、LissHelper.exe，避免按同名进程全局结束。它不处理 ScreenRender，不设置 Disabled，不改注册表，不卸载任何驱动。已有原播放器窗口不会由这个命令自动关闭。
 
@@ -119,6 +119,6 @@ mpv http://127.0.0.1:17778/live.ts
 
 ## 四、后续验证
 
-- `python -m unittest discover -s tests -v` 运行本机测试，不连接课堂网络，不调用 FFmpeg，也不执行控制启停。
+- `uv run python -m unittest discover -s tests -v` 运行本机测试，不连接课堂网络，不调用 FFmpeg，也不执行控制启停。
 - 后续有自然广播时，用真实参数运行 CLI 并通过播放器确认动态画面；此前不能把精简 CLI 的线上兼容性标记为已验收。
 - 不支持音频、丢包重传、未知封装、独立 SPS/PPS 单元或 B 帧 DTS 重建；协议不匹配时应分析最小样本再改实现。
