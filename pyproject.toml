@@ -9,7 +9,9 @@ description = "Small CLI for a researched OsEasy video stream and local student 
 requires-python = ">=3.10"
 license = {text = "MIT"}
 readme = "README.md"
-dependencies = []
+dependencies = [
+    "psutil>=6,<8",
+]
 
 [project.scripts]
 oseasy-helper = "oseasy_helper.cli:main"

@@ -1,6 +1,6 @@
 # oseasy-helper
 
-一个小型 CLI：接收噢易课堂广播视频，提供播放器地址；接收下发文件；查询、临时启停本机学生端。Python 3.10+，运行时只使用标准库。
+一个小型 CLI：接收噢易课堂广播视频，提供播放器地址；接收下发文件；查询、挂起或临时启停本机学生端。Python 3.10+；视频和文件接收使用标准库，进程挂起使用 `psutil`。
 
 ```text
 uv run oseasy-helper -h
@@ -83,6 +83,8 @@ uv run oseasy-helper files --teacher 203.0.113.10 --local 192.0.2.20
 
 ```powershell
 uv run oseasy-helper control status
+uv run oseasy-helper control suspend
+uv run oseasy-helper control resume
 uv run oseasy-helper control stop
 uv run oseasy-helper control start
 ```
@@ -90,10 +92,14 @@ uv run oseasy-helper control start
 | 命令 | 行为 |
 | --- | --- |
 | `status` | 只读查询 MMPC 服务，并按安装目录及 MMPC 子进程树发现当前噢易进程。服务运行不等于已连接教师。 |
+| `suspend` | 管理员终端运行。挂起安装目录内的 Student / MmcStudent / MultiClient，MMPC 服务保持运行。 |
+| `resume` | 管理员终端运行。恢复上述已挂起的进程。 |
 | `stop` | 管理员终端运行。停止 MMPC，结束其安装目录内上述学生端进程；原学生端管理连接会中断。 |
 | `start` | 管理员终端运行。启动 MMPC；若学生端没有自动出现，使用原软件入口启动，再检查连接状态。 |
 
-普通终端也能显示受保护的 MMPC 服务进程及其子进程，但 Windows 可能不提供其 `ExecutablePath`；这不等于进程不存在。启停不会修改服务启动类型、删除文件、操作驱动或自动提权。`stop` 是临时停止：其他组件或系统重启可能再次启动学生端，也不能保证已经生效的驱动锁定会解除。出错可能已经完成部分操作，应先 `control status`，需要恢复时使用 `control start`。
+`suspend/resume` 参考 OsEasy-ToolBox 的 `psutil.Process.suspend()/resume()` 做法，但增加了安装目录复核；不会挂起 MMPC、DeviceControl 或无关的同名程序。挂起会停止学生端处理心跳、文件任务及其他报文，教师端可能在超时后判定离线，不能把它当作“持续在线但拒绝控制”的保证。
+
+普通终端也能显示受保护的 MMPC 服务进程及其子进程，但 Windows 可能不提供其 `ExecutablePath`；这不等于进程不存在。所有状态变更都不会修改服务启动类型、删除文件、操作驱动或自动提权。`stop` 是临时停止：其他组件或系统重启可能再次启动学生端，也不能保证已经生效的驱动锁定会解除。出错可能已经完成部分操作，应先 `control status`，挂起后使用 `control resume`，停止后使用 `control start`。
 
 **本项目没有实现“原学生端保持在线，同时屏蔽全部键鼠强控”。** 独立接收视频与原管理连接分属不同链路；视频能继续到达仍取决于实际网络和教师广播状态。当前没有广播与控制同时发生的现场验收结果。
 

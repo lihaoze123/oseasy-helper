@@ -10,7 +10,7 @@
 
 ## 一、研究对象与证据
 
-研究对象为 Windows 上的噢易学生端，相关程序版本为 10.9.0.4820。参考过公开项目 [OsEasy-ToolBox](https://github.com/ZiHaoSaMa66/OsEasy-ToolBox/tree/873a074edf4635dadb7ccf01ed3c9e1504bc5773)。其思路提示了原播放器与学生端管理进程可以分别研究；本项目接收器没有复制该项目代码。该项目中的驱动删除、登录入口替换及提权相关做法没有纳入此复现方案。
+研究对象为 Windows 上的噢易学生端，相关程序版本为 10.9.0.4820。参考过公开项目 [OsEasy-ToolBox](https://github.com/ZiHaoSaMa66/OsEasy-ToolBox/tree/873a074edf4635dadb7ccf01ed3c9e1504bc5773)。其思路提示了原播放器与学生端管理进程可以分别研究；`control suspend/resume` 也明确采用其通过 psutil 挂起 Student / MmcStudent 和 MultiClient 的方法，并增加安装路径校验。本项目的视频、文件接收器没有复制该项目代码。该项目中的驱动删除、登录入口替换及提权相关做法没有纳入此复现方案。
 
 | 阶段 | 当时的证据 | 能得出的结论 |
 | --- | --- | --- |
@@ -108,11 +108,22 @@ mpv http://127.0.0.1:17778/live.ts
 3. 再次查询状态；在广播自然存在时运行 `video`，检查画面与本机操作。
 4. 需要恢复时运行 `uv run oseasy-helper control start`；原学生端未自动出现则使用原入口启动，核对原客户端连接状态。
 
-`status` 从 MMPC 注册路径取得安装目录，按该目录和服务 PID 子进程树发现组件；即使普通终端无法读取受保护进程的路径，也能显示 MMPC 及其子进程。`stop` 停止 MMPC 服务后，只结束安装目录范围内的 Student、MultiClient、LissHelper、LISSNetInfoSniffer 和 DeviceControl 候选进程，避免按同名进程全局结束。它不处理 ScreenRender，不设置 Disabled，不改注册表，不卸载任何驱动。已有原播放器窗口不会由这个命令自动关闭。
+`status` 从 MMPC 注册路径取得安装目录，按该目录和服务 PID 子进程树发现组件；即使普通终端无法读取受保护进程的路径，也能显示 MMPC 及其子进程。`stop` 停止 MMPC 服务后，只结束安装目录范围内的 Student、MmcStudent、MultiClient、LissHelper、LISSNetInfoSniffer 和 DeviceControl 候选进程，避免按同名进程全局结束。它不处理 ScreenRender，不设置 Disabled，不改注册表，不卸载任何驱动。已有原播放器窗口不会由这个命令自动关闭。
 
 如果操作部分完成后失败，应先查询状态，再决定恢复。原服务已经被其他工具设置为 Disabled 时，`start` 可能失败；本 CLI 不擅自恢复未知的旧配置。拒绝访问时也不会追加提权绕过操作。
 
 **停止服务/进程并不能保证已有驱动锁定被解除，也不能阻止其他组件重新启动学生端。** 没有广播和控制同时发生的实际验证，就不能声称“控制已完全关闭且视频一定继续”。
+
+### 挂起与恢复学生端主进程
+
+```powershell
+uv run oseasy-helper control suspend
+uv run oseasy-helper control resume
+```
+
+这一实现参考 OsEasy-ToolBox：通过 psutil 枚举进程，对 Student.exe（或新版本的 MmcStudent.exe）和 MultiClient.exe 调用 `suspend()`，恢复时调用 `resume()`。本实现还从 MMPC 服务取得安装目录，并在操作前重新读取进程名称与可执行路径；路径不在该目录的同名程序不会处理。操作需要管理员终端，不自动提权。
+
+挂起与停止的语义不同：挂起保留进程和内核 socket，但用户态线程不再读取报文或发送心跳。教师端可能暂时仍看到旧连接，随后因超时判定离线；文件任务也无法由挂起的原进程处理。恢复只适用于进程仍存在的情况。该方法不能证明“持续在线且只禁用强制控制”。
 
 ### 保持原学生端在线并阻止全部控制
 

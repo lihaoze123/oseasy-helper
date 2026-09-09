@@ -43,11 +43,11 @@ def parser():
     incoming.add_argument("--output", default="received", help="Output directory (default: received)")
     incoming.add_argument("--node-port", type=port, default=8555, help="Teacher task port (default: 8555)")
     incoming.add_argument("--data-port", type=port, default=9100, help="Local receiving port (default: 9100)")
-    manage = commands.add_parser("control", help="Windows: status/start/stop of the local student",
-        description="Manage MMPC and student processes. stop disconnects the original student; "
-                    "it does NOT keep it online with all input control blocked. No driver or startup changes.")
-    manage.add_argument("action", choices=("status", "start", "stop"),
-                        help="status is read-only; start/stop require an administrator terminal")
+    manage = commands.add_parser("control", help="Windows: inspect, suspend or stop the local student",
+        description="Suspend/resume the main student processes, or start/stop MMPC. "
+                    "Suspension may eventually time out the teacher connection. No driver or startup changes.")
+    manage.add_argument("action", choices=("status", "suspend", "resume", "start", "stop"),
+                        help="status is read-only; other actions require an administrator terminal")
     return root
 
 
