@@ -18,3 +18,6 @@ oseasy-helper = "oseasy_helper.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["oseasy_helper*"]
+
+[tool.setuptools.package-data]
+oseasy_helper = ["mock-thumbnail.jpg"]

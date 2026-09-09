@@ -1,6 +1,7 @@
 """Experimental management login; received commands are observed, never executed."""
 import getpass
 import json
+from pathlib import Path
 import re
 import socket
 import struct
@@ -45,9 +46,18 @@ def message(payload):
                 declared_bytes=size, body_bytes=len(payload) - 16)
 
 
+def thumbnail_reply(fields, jpeg):
+    if fields['command'] != 89 or fields['kind'] != 64:
+        return None
+    payload = struct.pack('<IIII', 43, 64, 0, len(jpeg)) + jpeg
+    return struct.pack('<I', len(payload)) + payload
+
+
 def run(args):
     stop = threading.Event()
     mac = interface_mac(args.local)
+    jpeg = (Path(__file__).with_name('mock-thumbnail.jpg').read_bytes()
+            if args.mock_thumbnail else None)
     def emit(event, **fields):
         print(json.dumps(dict(time=time.strftime('%Y-%m-%dT%H:%M:%S%z'),
                               event=event, **fields)), flush=True)
@@ -63,6 +73,11 @@ def run(args):
             while True:
                 fields = message(read_frame(sock, stop, idle=None))
                 emit('management_message', **fields)
+                if jpeg is not None:
+                    reply = thumbnail_reply(fields, jpeg)
+                    if reply is not None:
+                        sock.sendall(reply)
+                        emit('mock_thumbnail_sent', bytes=len(jpeg), width=64, height=64)
                 if fields['command'] == 25:
                     emit('file_transfer_command', kind=fields['kind'])
         except EOFError:

@@ -1,10 +1,18 @@
 import struct
 import unittest
 
-from oseasy_helper.client import login_packet, message
+from oseasy_helper.client import login_packet, message, thumbnail_reply
 
 
 class ClientTests(unittest.TestCase):
+    def test_mock_thumbnail_only_answers_observed_request(self):
+        jpeg = b'\xff\xd8test\xff\xd9'
+        reply = thumbnail_reply(dict(command=89, kind=64), jpeg)
+        self.assertEqual(struct.unpack_from('<IIIII', reply), (24, 43, 64, 0, 8))
+        self.assertEqual(reply[20:], jpeg)
+        self.assertIsNone(thumbnail_reply(dict(command=25, kind=64), jpeg))
+        self.assertIsNone(thumbnail_reply(dict(command=89, kind=128), jpeg))
+
     def test_login_has_utf16_byte_length_and_management_header(self):
         packet = login_packet('PC', '同学', '02:00:00:00:00:01', '192.0.2.20',
                               '2026-01-01 09:00:00')
