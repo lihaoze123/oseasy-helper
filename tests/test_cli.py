@@ -8,7 +8,7 @@ from oseasy_helper.cli import main
 
 class CliTests(unittest.TestCase):
     def test_help_at_every_level(self):
-        for args in (['-h'], ['video', '-h'], ['control', '-h']):
+        for args in (['-h'], ['video', '-h'], ['files', '-h'], ['control', '-h']):
             with self.subTest(args=args), contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as result:
                 main(args)
             self.assertEqual(result.exception.code, 0)
@@ -34,6 +34,14 @@ class CliTests(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as result:
             main(['video', '--teacher', '203.0.113.10', '--local', '192.0.2.20', '--http-port', '65536'])
         self.assertEqual(result.exception.code, 2)
+
+    def test_files_is_independent_of_control(self):
+        with patch('oseasy_helper.cli.files.receive') as receive, patch('oseasy_helper.cli.control.run') as control:
+            code = main(['files', '--teacher', '203.0.113.10', '--local', '192.0.2.20'])
+        self.assertEqual(code, 0)
+        self.assertEqual(receive.call_args.args[0].data_port, 9100)
+        self.assertEqual(receive.call_args.args[0].node_port, 8555)
+        control.assert_not_called()
 
 
 if __name__ == '__main__':
