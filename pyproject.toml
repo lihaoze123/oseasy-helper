@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oseasy-helper"
+version = "0.1.0"
+description = "Small CLI for a researched OsEasy video stream and local student service"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+readme = "README.md"
+dependencies = []
+
+[project.scripts]
+oseasy-helper = "oseasy_helper.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["oseasy_helper*"]
