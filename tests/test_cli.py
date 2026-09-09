@@ -8,7 +8,7 @@ from oseasy_helper.cli import main
 
 class CliTests(unittest.TestCase):
     def test_help_at_every_level(self):
-        for args in (['-h'], ['video', '-h'], ['files', '-h'], ['control', '-h']):
+        for args in (['-h'], ['video', '-h'], ['files', '-h'], ['client', '-h'], ['control', '-h']):
             with self.subTest(args=args), contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as result:
                 main(args)
             self.assertEqual(result.exception.code, 0)

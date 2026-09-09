@@ -3,7 +3,7 @@ import argparse
 import ipaddress
 import sys
 
-from . import control, files, video
+from . import client, control, files, video
 
 
 def ipv4(value):
@@ -43,6 +43,12 @@ def parser():
     incoming.add_argument("--output", default="received", help="Output directory (default: received)")
     incoming.add_argument("--node-port", type=port, default=8555, help="Teacher task port (default: 8555)")
     incoming.add_argument("--data-port", type=port, default=9100, help="Local receiving port (default: 9100)")
+    login = commands.add_parser("client", help="Experimental management login; observe commands only",
+        description="Log in using this computer's identity. Commands are logged, never executed. "
+                    "Online persistence and teacher acceptance still require testing.")
+    login.add_argument("--teacher", type=ipv4, required=True)
+    login.add_argument("--local", type=ipv4, required=True)
+    login.add_argument("--port", type=port, default=9003)
     manage = commands.add_parser("control", help="Windows: inspect, suspend or stop the local student",
         description="Suspend/resume the main student processes, or start/stop MMPC. "
                     "Suspension may eventually time out the teacher connection. No driver or startup changes.")
@@ -55,12 +61,15 @@ def main(argv=None):
     root = parser()
     args = root.parse_args(argv)
     try:
-        if args.command in ("video", "files"):
+        if args.command in ("video", "files", "client"):
             for name in ("teacher", "local"):
                 address = ipaddress.IPv4Address(getattr(args, name))
                 if address.is_unspecified or address.is_multicast or address.is_reserved:
                     raise ValueError(f"--{name} must be a unicast interface address")
-            (video if args.command == "video" else files).receive(args)
+            if args.command == "client":
+                client.run(args)
+            else:
+                (video if args.command == "video" else files).receive(args)
         else:
             control.run(args.action)
     except (OSError, ValueError, RuntimeError) as error:
