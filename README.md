@@ -12,18 +12,14 @@ oseasy-helper control -h
 
 ## 运行
 
-在仓库目录执行，不需要安装 Python 包：
-
-```powershell
-.\oseasy-helper.cmd -h
-```
-
-或使用跨平台入口 `python -m oseasy_helper -h`。若希望在其他目录直接运行 `oseasy-helper`，可安装到自己使用的 Python 环境：
+在仓库目录安装：
 
 ```powershell
 python -m pip install .
 oseasy-helper -h
 ```
+
+也可以不安装，直接在仓库目录使用 `python -m oseasy_helper`。
 
 Windows 的 `control` 使用系统自带的 Windows PowerShell。`video` 基于标准 socket 编写，当前宿主验证环境是 Windows；其他系统的组播接收需要自行验证。
 
@@ -74,10 +70,15 @@ oseasy-helper control start
 
 - [HANDOFF.md](HANDOFF.md)：研究结论、视频链路复现、控制范围和未验证事项。
 - [docs/PROTOCOL.md](docs/PROTOCOL.md)：私有头部、重组及 MPEG-TS 输出细节。
-- [docs/PRIVACY.md](docs/PRIVACY.md)：公开仓库的脱敏范围。
 - `oseasy_helper/video.py`：接收、重组、TS 封装和 HTTP 输出。
 - `oseasy_helper/control.py`：本机服务管理，命令内容直接可审阅。
 
-开发时可执行 `python -m unittest discover -s tests -v`。测试使用人工构造的数据及本机 HTTP，不包含课堂录像，不执行 `control start/stop`，不需要 FFmpeg。测试验证协议处理和输出结构，不替代现场画面验收。封装链路曾用标准解码器验证；此精简 CLI 尚未在真实广播期间复测，也未实际测试 mpv / VLC 客户端。
+运行测试：
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+测试使用人工数据和本机 HTTP，覆盖协议处理、输出结构和 CLI 入口，不执行控制启停。封装链路曾用标准解码器验证；此 CLI 尚未在真实广播期间复测，也未实际测试 mpv / VLC 客户端。
 
 此实现来自对 10.9.0.4820 所用视频格式的观察，并非厂商提供的完整协议规范。没有音频、重传、教师指令、身份模拟或心跳保活功能。
