@@ -30,9 +30,9 @@ def parser():
     live = commands.add_parser("video", help="Expose a local MPEG-TS URL (Ctrl+C stops)",
         description="Reassemble UDP H.264 and serve http://127.0.0.1:17778/live.ts. "
                     "Your player decodes the video. No window or FFmpeg dependency.")
-    live.add_argument("--teacher", type=ipv4, required=True, help="Teacher's source IPv4 address")
+    live.add_argument("--teacher", type=ipv4, required=True,
+                      help="Teacher's source IPv4; multicast group is derived automatically")
     live.add_argument("--local", type=ipv4, required=True, help="IPv4 address of your classroom-facing adapter")
-    live.add_argument("--group", type=ipv4, required=True, help="Observed IPv4 multicast group (do not guess)")
     live.add_argument("--udp-port", type=port, default=7778, help="Destination UDP port (default: 7778)")
     live.add_argument("--http-port", type=port, default=17778, help="Local playback port (default: 17778)")
     manage = commands.add_parser("control", help="Windows: status/start/stop of the local student",
@@ -48,8 +48,6 @@ def main(argv=None):
     args = root.parse_args(argv)
     try:
         if args.command == "video":
-            if not ipaddress.IPv4Address(args.group).is_multicast:
-                raise ValueError("--group must be an IPv4 multicast address")
             for name in ("teacher", "local"):
                 address = ipaddress.IPv4Address(getattr(args, name))
                 if address.is_unspecified or address.is_multicast or address.is_reserved:

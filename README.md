@@ -25,11 +25,13 @@ Windows 的 `control` 使用系统自带的 Windows PowerShell。`video` 基于�
 
 ## 视频
 
-下面都是文档示例地址，必须替换为现场实际参数。`--local` 是连接课堂网络的本机网卡 IPv4；`--group` 是实际视频目的组播地址，不能仅凭教师 IP 推算。
+将下面示例地址替换为教师 IP 和本机课堂网卡 IPv4。组播地址由程序自动推导，无需填写。
 
 ```powershell
-uv run oseasy-helper video --teacher 203.0.113.10 --local 192.0.2.20 --group 239.255.0.1
+uv run oseasy-helper video --teacher 203.0.113.10 --local 192.0.2.20
 ```
+
+按研究版本的地址约定，教师 IP `A.B.C.D` 对应组播 `229.1.C.D`。例如上述教师地址对应 `229.1.113.10`。这个映射与原先验证的视频环境一致；其他地址约定尚未验证。
 
 启动成功后，标准输出只有一个地址：
 

@@ -18,15 +18,21 @@ class CliTests(unittest.TestCase):
             main(['video'])
         self.assertEqual(result.exception.code, 2)
 
-    def test_reject_non_multicast_group_before_network_use(self):
+    def test_video_does_not_require_a_group(self):
+        with patch('oseasy_helper.cli.video.receive') as receive:
+            code = main(['video', '--teacher', '203.0.113.10', '--local', '192.0.2.20'])
+        self.assertEqual(code, 0)
+        receive.assert_called_once()
+
+    def test_reject_multicast_teacher_before_network_use(self):
         with patch('oseasy_helper.cli.video.receive') as receive, contextlib.redirect_stderr(io.StringIO()):
-            code = main(['video', '--teacher', '203.0.113.10', '--local', '192.0.2.20', '--group', '192.0.2.30'])
+            code = main(['video', '--teacher', '239.255.0.1', '--local', '192.0.2.20'])
         self.assertEqual(code, 1)
         receive.assert_not_called()
 
     def test_invalid_port(self):
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as result:
-            main(['video', '--teacher', '203.0.113.10', '--local', '192.0.2.20', '--group', '239.255.0.1', '--http-port', '65536'])
+            main(['video', '--teacher', '203.0.113.10', '--local', '192.0.2.20', '--http-port', '65536'])
         self.assertEqual(result.exception.code, 2)
 
 

@@ -3,7 +3,7 @@ import unittest
 import http.client
 import threading
 from http.server import ThreadingHTTPServer
-from oseasy_helper.video import Frame, Reassembler, TsMuxer, State, handler_for, mpeg_crc
+from oseasy_helper.video import Frame, Reassembler, TsMuxer, State, handler_for, mpeg_crc, multicast_group
 
 # Structural NAL markers, not a decodable classroom video sample.
 KEY = bytes.fromhex('000000016704000000016805000000016506')
@@ -15,6 +15,10 @@ def packet(seq, index, count, body):
 
 
 class CoreTests(unittest.TestCase):
+    def test_group_uses_teacher_host_octets(self):
+        self.assertEqual(multicast_group('203.0.113.10'), '229.1.113.10')
+        self.assertEqual(multicast_group('192.0.2.255'), '229.1.2.255')
+
     def test_out_of_order_and_duplicates(self):
         r = Reassembler()
         self.assertEqual(r.push(packet(1, 1, 2, KEY[8:]), 0), [])

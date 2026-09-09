@@ -1,6 +1,7 @@
 """Fragmented H.264 -> MPEG-TS over loopback HTTP; no pixel decoder or GUI."""
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import ipaddress
 import queue
 import re
 import select
@@ -251,6 +252,12 @@ def handler_for(state):
     return Handler
 
 
+def multicast_group(teacher):
+    """Address convention observed in the studied stream and used by the earlier wrapper."""
+    octets = ipaddress.IPv4Address(teacher).packed
+    return f'229.1.{octets[2]}.{octets[3]}'
+
+
 def receive(args):
     state, server = State(), None
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp:
@@ -259,7 +266,7 @@ def receive(args):
             udp.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4 * 1024 * 1024)
             udp.bind(('0.0.0.0', args.udp_port))
             udp.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP,
-                           socket.inet_aton(args.group) + socket.inet_aton(args.local))
+                           socket.inet_aton(multicast_group(args.teacher)) + socket.inet_aton(args.local))
             udp.settimeout(0.1)
             server = ThreadingHTTPServer(('127.0.0.1', args.http_port), handler_for(state))
             server.daemon_threads = True

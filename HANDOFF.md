@@ -34,7 +34,7 @@ uv sync --locked
 uv run oseasy-helper -h
 ```
 
-需要三个参数：教师源 IPv4、本机课堂网卡 IPv4、广播目的组播 IPv4。组播地址应从实际广播中取得。
+用户只需提供教师源 IPv4 和本机课堂网卡 IPv4。组播由 `multicast_group()` 按 `A.B.C.D → 229.1.C.D` 自动推导。这是研究环境观察到、前序 wrapper 已采用的地址约定；不是对所有版本都成立的协议保证。
 
 本机 IPv4 可以只读查询：
 
@@ -48,7 +48,7 @@ Get-NetIPAddress -AddressFamily IPv4 | Select-Object InterfaceAlias,IPAddress
 Get-CimInstance Win32_Process -Filter "Name='ScreenRender.exe'" | Select-Object -ExpandProperty CommandLine
 ```
 
-`local` 对应本机网卡，`remote` 对应观察到的组播地址，`port` 对应视频目的 UDP 端口。参数格式属于原软件实现细节；先核对实际值，不要求启动、修改或操作教师端。原播放器不在运行时，这条查询可以没有输出。
+`local` 对应本机网卡，`remote` 对应实际组播地址，`port` 对应视频目的 UDP 端口。这里的查询用于排查版本差异，正常运行无需用户查找或输入组播。原播放器不在运行时，这条查询可以没有输出。
 
 若已具备抓包环境，可用过滤器观察目标数据：`udp dst port 7778 and src host 203.0.113.10`，替换其中示例教师地址。从 IP 层取得目的组播地址，UDP 层取得负载。CLI 本身不依赖抓包驱动。
 
@@ -57,10 +57,10 @@ Get-CimInstance Win32_Process -Filter "Name='ScreenRender.exe'" | Select-Object 
 下面地址仅作示例：
 
 ```powershell
-uv run oseasy-helper video --teacher 203.0.113.10 --local 192.0.2.20 --group 239.255.0.1 --udp-port 7778
+uv run oseasy-helper video --teacher 203.0.113.10 --local 192.0.2.20 --udp-port 7778
 ```
 
-UDP socket 加入指定网卡的组播组，过滤教师源 IP，然后进入分片重组。成功启动会输出：
+UDP socket 加入指定网卡上自动推导的组播组，过滤教师源 IP，然后进入分片重组。成功启动会输出：
 
 ```text
 http://127.0.0.1:17778/live.ts
@@ -83,7 +83,7 @@ mpv http://127.0.0.1:17778/live.ts
 | 现象 | 优先检查 |
 | --- | --- |
 | 绑定或加入组播失败 | 本机网卡地址是否存在、端口是否冲突、系统 socket 错误信息 |
-| URL 已输出，一直等待关键帧，退出时 packets=0 | 教师是否自然在广播；本机 IP、组播和源 IP 是否正确；交换机/无线网络是否转发组播；防火墙是否允许接收 |
+| URL 已输出，一直等待关键帧，退出时 packets=0 | 教师是否自然在广播；本机 IP 和教师 IP 是否正确；自动推导的组播是否符合该版本的地址约定；交换机/无线网络是否转发组播；防火墙是否允许接收 |
 | packets>0，frames=0 | 私有头部是否仍为所述格式；是否严重缺片；是否已收到同单元 SPS/PPS/IDR |
 | frames 增长，播放器不显示 | 播放器是否连到正确 HTTP 端口；码流是否与研究版本兼容；是否需要等下一关键帧 |
 | 画面卡顿或连接关闭 | UDP 丢包、播放器缓存或消费过慢；可重新打开地址等待关键帧 |
