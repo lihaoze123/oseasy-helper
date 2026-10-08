@@ -1,5 +1,6 @@
 """Experimental login and passive file receiver; ignores remote control commands."""
 import getpass
+from contextlib import ExitStack
 from pathlib import Path
 import re
 import socket
@@ -10,6 +11,7 @@ import time
 import psutil
 
 from .files import read_frame, receiver
+from . import video
 
 
 def interface_mac(local):
@@ -67,35 +69,63 @@ def directory_reply(fields, receive_dir):
     return struct.pack('<I', len(payload)) + payload
 
 
-def run(args):
-    stop = threading.Event()
-    mac = interface_mac(args.local)
-    receive_dir = Path(args.receive_dir).resolve()
-    receive_dir.mkdir(parents=True, exist_ok=True)
-    jpeg = (Path(__file__).with_name('mock-thumbnail.jpg').read_bytes()
-            if args.mock_thumbnail else None)
-    with receiver(args, stop) as emit, socket.socket() as sock:
+def management_session(args, stop, emit, mac, jpeg, receive_dir):
+    """One login session; requests are not evidence of teacher UI acceptance."""
+    with socket.socket() as sock:
         sock.bind((args.local, 0))
         sock.settimeout(5)
         sock.connect((args.teacher, args.port))
         sock.settimeout(0.5)
-        sock.sendall(login_packet(socket.gethostname(), getpass.getuser(), mac,
+        sock.sendall(login_packet(getattr(args, 'name', None) or socket.gethostname(),
+                                  getattr(args, 'user', None) or getpass.getuser(), mac,
                                   args.local, time.strftime('%Y-%m-%d %H:%M:%S')))
         emit('login_sent', note='TCP connected; teacher acceptance is not yet verified')
-        try:
-            while True:
-                fields = message(read_frame(sock, stop, idle=None))
-                emit('management_message', **fields)
-                reply = directory_reply(fields, receive_dir)
+        while not stop.is_set():
+            fields = message(read_frame(sock, stop, idle=getattr(args, 'management_idle_timeout', 60)))
+            emit('management_message', **fields)
+            reply = directory_reply(fields, receive_dir)
+            if reply is not None:
+                sock.sendall(reply)
+                emit('receive_directory_sent', path=str(receive_dir))
+            if jpeg is not None:
+                reply = thumbnail_reply(fields, jpeg)
                 if reply is not None:
                     sock.sendall(reply)
-                    emit('receive_directory_sent', path=str(receive_dir))
-                if jpeg is not None:
-                    reply = thumbnail_reply(fields, jpeg)
-                    if reply is not None:
-                        sock.sendall(reply)
-                        emit('mock_thumbnail_sent', bytes=len(jpeg), width=64, height=64)
-                if fields['command'] == 25:
-                    emit('file_transfer_command', kind=fields['kind'])
-        except EOFError:
-            emit('disconnected')
+                    emit('mock_thumbnail_sent', bytes=len(jpeg), width=64, height=64)
+            if fields['command'] == 25:
+                emit('file_transfer_command', kind=fields['kind'])
+
+
+def run(args, stop=None):
+    stop = stop if stop is not None else threading.Event()
+    mac = getattr(args, 'mac', None) or interface_mac(args.local)
+    receive_dir = Path(args.receive_dir).resolve()
+    receive_dir.mkdir(parents=True, exist_ok=True)
+    jpeg = (Path(__file__).with_name('mock-thumbnail.jpg').read_bytes()
+            if args.mock_thumbnail else None)
+    # Validate identity/path fields before opening any network services.
+    login_packet(getattr(args, 'name', None) or socket.gethostname(),
+                 getattr(args, 'user', None) or getpass.getuser(), mac, args.local, '')
+    directory_reply(dict(command=87, extra=1), receive_dir)
+    with receiver(args, stop) as emit, ExitStack() as services:
+        try:
+            if getattr(args, 'with_video', False):
+                try:
+                    services.enter_context(video.service(args, stop, emit))
+                except OSError as error:
+                    # A video port conflict must not silently disable file reception.
+                    emit('video_unavailable', error=str(error))
+            while not stop.is_set():
+                try:
+                    management_session(args, stop, emit, mac, jpeg, receive_dir)
+                except (OSError, EOFError, ValueError) as error:
+                    if stop.is_set():
+                        break
+                    emit('disconnected', error=str(error))
+                    if getattr(args, 'once', False):
+                        break
+                    delay = getattr(args, 'reconnect_delay', 5)
+                    emit('management_retry', retry_seconds=delay)
+                    stop.wait(delay)
+        finally:
+            stop.set()

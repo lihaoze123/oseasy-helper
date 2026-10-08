@@ -2,11 +2,12 @@
 
 用于噢易多媒体网络教室的 Python CLI，基于 10.9.0.4820 版本研究：
 
-- `client`：模拟学生端登录、响应目录查询、被动接收下发文件，可回传固定测试缩略图。
+- `student`：一个进程完成登录、测试缩略图应答、广播视频输出和文件接收。
+- `client`：登录、目录查询和文件接收；可用 `--video` 开启广播输出。
 - `video`：接收课堂广播，输出供 mpv / VLC 播放的视频流地址。
 - `control`：查询、挂起、恢复或临时启停本机官方学生端。
 
-当前验证环境为 Windows，要求 Python 3.10+。使用 [uv](https://docs.astral.sh/uv/) 管理环境；不安装驱动或自启项。
+要求 Python 3.10+，登录、视频和收件支持 Linux / Windows；`control` 仅支持 Windows。使用 uv 管理环境，不安装驱动或自启项。
 
 ## 安装与帮助
 
@@ -21,11 +22,36 @@ uv run oseasy-helper -h
 
 ```powershell
 uv run oseasy-helper client -h
+uv run oseasy-helper student -h
 uv run oseasy-helper video -h
 uv run oseasy-helper control -h
 ```
 
 以下示例中的 `--teacher` 替换为教师机 IPv4，`--local` 替换为本机课堂网卡 IPv4。
+
+## 合并学生端
+
+```bash
+uv run oseasy-helper student --teacher 10.115.4.137 --local 10.115.1.54
+```
+
+以上是测试机的地址示例；在其他机器运行时，必须将 `--local` 改为该机器课堂网卡的 IPv4。保持终端运行，在播放器中打开输出的 `http://127.0.0.1:17778/live.ts`：
+
+```bash
+mpv http://127.0.0.1:17778/live.ts
+```
+
+在外层 Nix 项目目录可以用轻量环境启动：
+
+```bash
+nix develop .#helper -c uv run --project oseasy-helper oseasy-helper student --teacher 10.115.4.137 --local 本机IPv4
+```
+
+`student` 默认开启视频和固定 MOCK 测试缩略图；`--no-video`、`--no-mock-thumbnail` 可分别关闭。视频初次绑定失败时记录 `video_unavailable`，登录和收件仍继续；通过 `--http-port` 避免已有播放器服务的端口冲突。程序只提供播放 URL，不自动打开窗口。
+
+登录默认使用本机计算机名、用户名和指定网卡的 MAC。可用 `--name`、`--user`、`--mac` 指定身份字段，适用于教师端座位列表需要与原配置一致的环境。字段不会自动从官方安装或教师端读取，也不伪造其他学生的身份。
+
+管理连接断开或连续 60 秒无管理数据后，默认等待 5 秒重新连接并发送登录，文件监听和视频输出保持运行。`--reconnect-delay` 修改管理及文件节点的重试间隔；`--management-idle-timeout` 修改管理读超时；`--once` 在管理连接失败或断开后退出。退出用 Ctrl+C，不修改系统自启。
 
 ## 客户端
 
@@ -37,7 +63,7 @@ uv run oseasy-helper client --teacher 203.0.113.10 --local 192.0.2.20 --mock-thu
 
 一个进程同时处理管理连接、目录查询、文件任务和文件接收，无需单独启动文件监听器。程序使用本机名称、当前用户名及指定网卡的 MAC/IP 发送登录报文。它不执行远程键鼠控制、截图、启动程序或上传文件的指令，也不会自动停止官方学生端。
 
-`--mock-thumbnail` 在教师请求缩略图时回传一张标有 MOCK/TEST 的固定 64×64 图片，不读取桌面。现场已确认教师界面可以显示该图。不加此参数时不会回传缩略图；此前测试中教师界面仍显示未登录/离线。
+默认在教师请求缩略图时回传一张标有 MOCK/TEST 的固定 64×64 图片，不读取桌面；`--no-mock-thumbnail` 可关闭。既往现场已确认教师界面可以显示该图，关闭时曾仍显示未登录/离线。缩略图发送成功不等于教师端界面已确认在线。
 
 ### 收件目录
 
@@ -58,21 +84,30 @@ uv run oseasy-helper client --teacher 203.0.113.10 --local 192.0.2.20 --mock-thu
 | `mock_thumbnail_sent` | 固定缩略图已发出 |
 | `receive_directory_sent` | 收件目录应答已发出 |
 | `node_connected` / `node_ready` | 文件节点已连接 / 就绪消息已发出 |
-| `node_retry` | 文件节点连接失败，5 秒后重试 |
-| `receive_task` | 收到文件任务；`matches_listener=false` 表示本机地址或端口不匹配 |
+| `node_retry` / `management_retry` | 文件节点 / 管理连接失败，按配置间隔重试 |
+| `receive_task` | 收到文件任务；`matches_listener` 仅与默认接收端口比较 |
+| `task_listener_ready` | 已为任务登记接收监听及发送节点，动态端口任务以此事件为准 |
+| `task_rejected` / `task_expired` | 任务地址错误、端口不可绑定、端口任务冲突 / 60 秒内未建立数据连接 |
+| `peer_rejected` | 来源不匹配任务、没有任务或同一任务已被连接占用 |
 | `data_connected` / `file_begin` | 数据连接到达 / 开始接收文件 |
 | `file_saved` / `transfer_complete` | 文件写入完成 / 已处理整次传输结束报文 |
 | `node_report_sent` | 已向文件节点发送成功结果、实际保存目录及重新就绪消息；不代表教师界面已确认 |
 | `node_report_skipped` | 文件已收完，但没有当前连接的匹配任务，未发送完成报告 |
 | `data_error` / `file_partial` | 接收失败；未完成文件保留为 `.part` |
+| `video_listening` / `video_receiving` | 视频服务启动 / 已收到完整关键帧 |
+| `video_unavailable` / `video_error` | 视频启动失败 / 接收线程失败，查看具体错误 |
 
-文件接收只接受指定教师 IP 的连接，不覆盖已有文件，不自动执行文件。每条数据连接最多接收 8 GiB、10000 个条目，连续 60 秒没有数据会结束；客户端继续等待后续传输。暂不支持断点续传或其他学生节点中继。
+文件接收接受指定教师 IP，或当前文件任务指定的发送节点 IP。任务数据端口会在 `--local` 网卡上动态绑定；任务中指定其他本机地址会被拒绝。默认端口也可接收教师直接发送的数据，但没有关联任务时不发送节点完成报告。其他端口必须匹配当前任务。
+
+最多同时保留 8 个监听端口；空闲动态端口可回收。同一端口只关联一个任务，重复任务不会替换正在接收的身份，冲突任务记录 `task_rejected`。不同端口可独立接收，不支持同一端口多任务排队、断点续传或本机继续向其他学生中继。若任务或节点连接已经替换，旧数据连接完成后不向新任务报成功。
+
+不覆盖已有文件、不自动执行文件。每条数据连接最多接收 8 GiB、10000 个条目，连续 60 秒没有数据会结束；客户端继续等待后续传输。失败传输保留 `.part` 并重新声明就绪，原厂失败状态码未确认，因此不编造失败报告。
 
 如果教师端一直显示正在发送，先检查 `file_saved` 和对应保存目录。内容落盘与教师端完成状态是两条链路；新版会在数据结束确认后，通过 8555 连接发送完成报告。更新后需重启 `client` 才会使用新版逻辑。
 
 默认使用教师 TCP 9003 管理连接、教师 TCP 8555 文件任务连接及本机 TCP 9100 数据监听，分别可用 `--port`、`--node-port`、`--data-port` 修改。
 
-按 Ctrl+C 或管理连接断开时，客户端一并停止文件任务连接和数据监听。管理连接暂不自动重连。不要同时运行官方学生端和本客户端，以免重复登录或占用接收端口。
+按 Ctrl+C 停止全部本程序线程；管理连接断开时自动重连。不要同时运行官方学生端和本客户端，以免重复登录或占用接收端口。
 
 ## 视频
 
@@ -94,7 +129,7 @@ mpv http://127.0.0.1:17778/live.ts
 
 `video` 重组私有 UDP 分片中的 H.264，再封装为 MPEG-TS；画面解码由播放器完成。没有窗口或 FFmpeg 依赖。默认 UDP 端口为 7778、HTTP 端口为 17778，可用 `--udp-port`、`--http-port` 修改。HTTP 只监听本机。
 
-可以与 `client` 同时运行。教师未广播或尚未收到完整关键帧时，播放器会等待；输出地址本身不代表已收到视频。按 Ctrl+C 停止。目前不支持音频或丢包重传。
+可以与未开启视频的 `client` 同时运行；`student` 已包含此功能。教师未广播或尚未收到完整关键帧时，播放器会等待；输出地址本身不代表已收到视频。按 Ctrl+C 停止。目前不支持音频或丢包重传。
 
 ## 官方学生端管理
 
@@ -120,6 +155,8 @@ uv run oseasy-helper control start
 ## 验证与研究文档
 
 已完成本机文件协议互通、合并客户端的登录、收件、完成报告和断线清理测试；固定测试缩略图已在教师界面显示，真实课堂文件已成功落盘。完成报告与官方组件本机捕获报文一致，但教师界面完成状态、目录选择和长期在线仍需实测。
+
+本轮在本地 Linux（Python 3.14）和测试机 `10.115.1.54`（Python 3.13）通过 45 项自动测试，包括管理重连期间继续收件、任务指定端口、任务发送节点、非任务来源拒绝、缩略图和目录回复、UDP 到 HTTP 的视频输出、端口回收、管理静默超时及 Ctrl+C 清理。测试中的人工 NAL 仅验证结构；另从真实广播取得 TS 样本并成功解码为 1920×1080 画面。真实教师端验证与未完成项见 [COMPATIBILITY.md](docs/COMPATIBILITY.md)。
 
 ```powershell
 uv run python -m unittest discover -s tests -v

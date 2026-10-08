@@ -1,5 +1,6 @@
 """Fragmented H.264 -> MPEG-TS over loopback HTTP; no pixel decoder or GUI."""
 from dataclasses import dataclass, field
+from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import ipaddress
 import queue
@@ -258,8 +259,14 @@ def multicast_group(teacher):
     return f'229.1.{octets[2]}.{octets[3]}'
 
 
-def receive(args):
+@contextmanager
+def service(args, stop=None, emit=None):
+    """Start synchronously, share a caller's lifetime, and always join workers."""
+    stop = stop if stop is not None else threading.Event()
+    closing = threading.Event()
     state, server = State(), None
+    worker = http_worker = None
+    emit = emit or (lambda event, **fields: None)
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp:
         try:
             udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -270,30 +277,59 @@ def receive(args):
             udp.settimeout(0.1)
             server = ThreadingHTTPServer(('127.0.0.1', args.http_port), handler_for(state))
             server.daemon_threads = True
-            threading.Thread(target=server.serve_forever, daemon=True).start()
-            print(f'http://127.0.0.1:{args.http_port}/live.ts', flush=True)
+            http_worker = threading.Thread(target=server.serve_forever, name='video-http')
+            http_worker.start()
+            url = f'http://127.0.0.1:{server.server_port}/live.ts'
+            print(url, flush=True)
+            emit('video_listening', url=url, udp_port=args.udp_port,
+                 group=multicast_group(args.teacher), local=args.local)
             print('Waiting for a complete H.264 keyframe. Ctrl+C stops.', file=sys.stderr, flush=True)
-            while True:
+            def consume():
                 try:
-                    packet, address = udp.recvfrom(65536)
-                    if address[0] != args.teacher:
-                        continue
-                    state.packets += 1
-                    frames = state.reassembler.push(packet)
-                except socket.timeout:
-                    frames = state.reassembler.drain()
-                for frame in frames:
-                    if not state.frames:
-                        print(f'Receiving H.264: {frame.width}x{frame.height}; open the URL in your player.',
-                              file=sys.stderr, flush=True)
-                    state.publish(frame)
-        except KeyboardInterrupt:
-            pass
+                    while not stop.is_set() and not closing.is_set():
+                        try:
+                            packet, address = udp.recvfrom(65536)
+                            if address[0] != args.teacher:
+                                continue
+                            state.packets += 1
+                            frames = state.reassembler.push(packet)
+                        except socket.timeout:
+                            frames = state.reassembler.drain()
+                        for frame in frames:
+                            if not state.frames:
+                                emit('video_receiving', width=frame.width, height=frame.height)
+                                print(f'Receiving H.264: {frame.width}x{frame.height}; open the URL in your player.',
+                                      file=sys.stderr, flush=True)
+                            state.publish(frame)
+                except Exception as error:
+                    emit('video_error', error=str(error))
+                finally:
+                    state.running = False
+            worker = threading.Thread(target=consume, name='video-data')
+            worker.start()
+            yield state
         finally:
+            closing.set()
+            if worker:
+                worker.join()
             state.running = False
             if server:
-                server.shutdown()
+                if http_worker:
+                    server.shutdown()
+                    http_worker.join()
                 server.server_close()
+            emit('video_stopped', packets=state.packets, frames=state.frames,
+                 lost=state.reassembler.lost, invalid=state.reassembler.invalid)
             print(f'Stopped: packets={state.packets}, frames={state.frames}, '
                   f'lost={state.reassembler.lost}, invalid={state.reassembler.invalid}',
                   file=sys.stderr, flush=True)
+
+
+def receive(args):
+    stop = threading.Event()
+    with service(args, stop) as state:
+        try:
+            while state.running and not stop.wait(0.5):
+                pass
+        except KeyboardInterrupt:
+            stop.set()
