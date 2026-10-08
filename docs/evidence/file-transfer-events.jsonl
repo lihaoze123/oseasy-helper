@@ -1,0 +1,78 @@
+{"time": "2026-10-08T16:24:16+0800", "event": "listening", "local": "10.115.1.54", "port": 9100, "teacher": "10.115.4.137", "output": "/tmp/oseasy-helper-test.Umh0EB/file-test-gi3a7sh9/received/20261008-162416-zdpmvm_y"}
+{"time": "2026-10-08T16:24:19+0800", "event": "node_retry", "error": "timed out", "retry_seconds": 5}
+{"time": "2026-10-08T16:24:21+0800", "event": "disconnected", "error": "timed out"}
+{"time": "2026-10-08T16:24:21+0800", "event": "management_retry", "retry_seconds": 5}
+{"time": "2026-10-08T16:24:28+0800", "event": "disconnected", "error": "[Errno 113] No route to host"}
+{"time": "2026-10-08T16:24:28+0800", "event": "management_retry", "retry_seconds": 5}
+{"time": "2026-10-08T16:24:34+0800", "event": "disconnected", "error": "[Errno 111] Connection refused"}
+{"time": "2026-10-08T16:24:34+0800", "event": "management_retry", "retry_seconds": 5}
+{"time": "2026-10-08T16:24:34+0800", "event": "node_retry", "error": "[Errno 111] Connection refused", "retry_seconds": 5}
+{"time": "2026-10-08T16:24:39+0800", "event": "disconnected", "error": "[Errno 111] Connection refused"}
+{"time": "2026-10-08T16:24:39+0800", "event": "management_retry", "retry_seconds": 5}
+{"time": "2026-10-08T16:24:44+0800", "event": "disconnected", "error": "[Errno 111] Connection refused"}
+{"time": "2026-10-08T16:24:44+0800", "event": "management_retry", "retry_seconds": 5}
+{"time": "2026-10-08T16:24:49+0800", "event": "disconnected", "error": "[Errno 111] Connection refused"}
+{"time": "2026-10-08T16:24:49+0800", "event": "management_retry", "retry_seconds": 5}
+{"time": "2026-10-08T16:24:54+0800", "event": "login_sent", "note": "TCP connected; teacher acceptance is not yet verified"}
+{"time": "2026-10-08T16:24:54+0800", "event": "management_message", "command": 24, "kind": 0, "extra": 0, "declared_bytes": 0, "body_bytes": 40}
+{"time": "2026-10-08T16:24:54+0800", "event": "management_message", "command": 116, "kind": 0, "extra": 0, "declared_bytes": 97, "body_bytes": 97}
+{"time": "2026-10-08T16:24:54+0800", "event": "management_message", "command": 92, "kind": 0, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:24:54+0800", "event": "management_message", "command": 45, "kind": 0, "extra": 0, "declared_bytes": 354, "body_bytes": 354}
+{"time": "2026-10-08T16:24:54+0800", "event": "management_message", "command": 24, "kind": 0, "extra": 0, "declared_bytes": 0, "body_bytes": 40}
+{"time": "2026-10-08T16:24:54+0800", "event": "management_message", "command": 500, "kind": 0, "extra": 0, "declared_bytes": 103, "body_bytes": 104}
+{"time": "2026-10-08T16:24:54+0800", "event": "management_message", "command": 28, "kind": 0, "extra": 0, "declared_bytes": 0, "body_bytes": 54}
+{"time": "2026-10-08T16:24:54+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:24:54+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T16:24:59+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:24:59+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T16:25:04+0800", "event": "management_message", "command": 25, "kind": 0, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:25:04+0800", "event": "file_transfer_command", "kind": 0}
+{"time": "2026-10-08T16:25:04+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:25:04+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T16:25:04+0800", "event": "management_message", "command": 87, "kind": 0, "extra": 1, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:25:04+0800", "event": "receive_directory_sent", "path": "/tmp/oseasy-helper-test.Umh0EB/file-test-gi3a7sh9/received"}
+{"time": "2026-10-08T16:25:09+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:25:09+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T16:25:14+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:25:14+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T16:25:19+0800", "event": "node_connected", "host": "10.115.4.137", "port": 8555}
+{"time": "2026-10-08T16:25:19+0800", "event": "node_ready", "local": "10.115.1.54", "port": 9100}
+{"time": "2026-10-08T16:25:19+0800", "event": "node_frame", "length": 834, "sample_hex": "03000000cc53de7ebf7e9e5b8c9a2e0070007000740000000000ffff98e6d3003594160025000000000000000f000000000000000200000000000000060000000000000030ffffff010300000000000000000000000000801d410000a0a40101b02dfd00ffffffffffffff7f01000000616363650100000000380000465ffe6ce4e7d300e4e7d300000000000f0000000000ffff98e6d3003594160025000000000000000f000000000000000200000000000000060000000000000030b3dfd901030000000000000000000000b3ddd900050080d0c7c6dacee50000ffffffffffffff7f01000000094e00000200000000360000465ffe6ce4e7d300e4e7d300000000000f0000000000ffff98e6d3003594160025000000000000000f000000000a00800200000000000000060000000000000030dccbc401030000000000000000000000661f67944e0000c5b3cdd9000d0080ffffffffffffff7f01000000674100000300000000350000465ffe6ce4e7d300e4e7d300000000000f0000000000ffff98e6d3003594160025000000000000000f000000000000000200000000000000060000000000000030b3f9d901030000000000000000000000b3ffd984140080d6dccee500000000ffffffffffffff7f01000000cbc400000400000000320000465ffe6ce4e7d300e4e7d300000000000f0000000000ffff98e6d3003594160031302e3131352e312e353400101900800200000000000000060000000000000030fed4c2010300000000000000000000004e086700000000dbb3efd9021c0080ffffffffffffff7f01000000101d00803132372e302e302e31003400e4e7d300e4e7d300000000000f000000000a00ff98e6d3003594160025000000000000000f000000000000000000000000000000060000000000000020b39bd9010200008c2362383231316163363437643634643763616239646232663534383464376663630000000000002f0074006d0070002f006f00730065006100730079002d00680065006c007000650072002d0074006500730074002e0055006d0068003000450042002f00660069006c0065002d0074006500730074002d00670069003300610037007300680039002f00720065006300650069007600650064000000"}
+{"time": "2026-10-08T16:25:19+0800", "event": "receive_task", "local": "10.115.1.54", "peer": "127.0.0.1", "port": 9100, "token": "b8211ac647d64d7cab9db2f5484d7fcc", "matches_listener": true}
+{"time": "2026-10-08T16:25:19+0800", "event": "task_listener_ready", "token": "b8211ac647d64d7cab9db2f5484d7fcc", "local": "10.115.1.54", "port": 9100, "peer": "127.0.0.1"}
+{"time": "2026-10-08T16:25:19+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:25:19+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T16:25:19+0800", "event": "data_connected", "peer": "10.115.4.137", "port": 9100, "token": "b8211ac647d64d7cab9db2f5484d7fcc", "directory": "transfer-jxw51a27"}
+{"time": "2026-10-08T16:25:19+0800", "event": "file_begin", "transfer": "transfer-jxw51a27", "path": "\u53cc\u7ede\u7ebf\u5b9e\u9a8c.ppt", "bytes": 1693696}
+{"time": "2026-10-08T16:25:19+0800", "event": "file_saved", "transfer": "transfer-jxw51a27", "path": "\u53cc\u7ede\u7ebf\u5b9e\u9a8c.ppt", "bytes": 1693696, "sha256": "5e3e4f6cc805d62924970742069455a5a1abbe644f8df26c24f7770b48b40ceb"}
+{"time": "2026-10-08T16:25:19+0800", "event": "transfer_complete", "transfer": "transfer-jxw51a27", "bytes": 1693696, "entries": 1}
+{"time": "2026-10-08T16:25:20+0800", "event": "node_report_sent", "status": 3, "token": "b8211ac647d64d7cab9db2f5484d7fcc", "directory": "/tmp/oseasy-helper-test.Umh0EB/file-test-gi3a7sh9/received/20261008-162416-zdpmvm_y/transfer-jxw51a27"}
+{"time": "2026-10-08T16:25:20+0800", "event": "node_retry", "error": "[Errno 104] Connection reset by peer", "retry_seconds": 5}
+{"time": "2026-10-08T16:25:20+0800", "event": "management_message", "command": 25, "kind": 0, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:25:20+0800", "event": "file_transfer_command", "kind": 0}
+{"time": "2026-10-08T16:25:20+0800", "event": "management_message", "command": 87, "kind": 0, "extra": 1, "declared_bytes": 116, "body_bytes": 116}
+{"time": "2026-10-08T16:25:20+0800", "event": "receive_directory_sent", "path": "/tmp/oseasy-helper-test.Umh0EB/file-test-gi3a7sh9/received"}
+{"time": "2026-10-08T16:25:24+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:25:24+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T16:25:25+0800", "event": "node_retry", "error": "[Errno 111] Connection refused", "retry_seconds": 5}
+{"time": "2026-10-08T16:25:29+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:25:29+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T16:25:34+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:25:34+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T16:25:39+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:25:39+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T16:25:44+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:25:44+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T16:25:47+0800", "event": "management_message", "command": 25, "kind": 1, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:25:47+0800", "event": "file_transfer_command", "kind": 1}
+{"time": "2026-10-08T16:25:49+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:25:49+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T16:25:54+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T16:25:54+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T16:25:58+0800", "event": "disconnected", "error": "[Errno 104] Connection reset by peer"}
+{"time": "2026-10-08T16:25:58+0800", "event": "management_retry", "retry_seconds": 5}
+{"time": "2026-10-08T16:26:03+0800", "event": "disconnected", "error": "[Errno 111] Connection refused"}
+{"time": "2026-10-08T16:26:03+0800", "event": "management_retry", "retry_seconds": 5}
+{"time": "2026-10-08T16:26:13+0800", "event": "disconnected", "error": "timed out"}
+{"time": "2026-10-08T16:26:13+0800", "event": "management_retry", "retry_seconds": 5}
+{"time": "2026-10-08T16:26:13+0800", "event": "node_retry", "error": "timed out", "retry_seconds": 5}

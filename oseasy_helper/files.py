@@ -1,6 +1,8 @@
 """Experimental TCP file receiver for the researched 10.9 protocol."""
 from contextlib import contextmanager
+from dataclasses import dataclass
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -17,6 +19,17 @@ MAX_TRANSFER_BYTES = 8 * 1024**3
 MAX_ENTRIES = 10000
 HELLO = struct.pack('<II', 4, 6)
 READY = struct.pack('<II', 4, 7)
+MAX_LISTENERS = 8
+TASK_WAIT_SECONDS = 60
+
+
+@dataclass(eq=False, frozen=True)
+class ReceiveTask:
+    token: str
+    subtype: int
+    local: str
+    peer: str
+    port: int
 
 
 def read_frame(sock, stop, *, limit=MAX_FRAME, tick=None, idle=60):
@@ -191,6 +204,8 @@ def receive_connection(sock, root, stop, emit):
 
 
 def node_message(payload, local, teacher, data_port, emit):
+    if len(payload) < 4:
+        raise ValueError('Truncated node opcode')
     opcode, = struct.unpack_from('<I', payload)
     if opcode != 3:
         emit('node_ignored', opcode=opcode, reason='Upload/other commands are not implemented')
@@ -203,11 +218,19 @@ def node_message(payload, local, teacher, data_port, emit):
     task_local = text_at(0x200, 0x250)
     peer = text_at(0x250, 0x2a0)
     port, = struct.unpack_from('<H', task, 0x2a0)
-    emit('receive_task', local=task_local, peer=peer, port=port,
-         token=text_at(0x2a2, 0x2c4),
+    token = text_at(0x2a2, 0x2c4)
+    emit('receive_task', local=task_local, peer=peer, port=port, token=token,
          matches_listener=(task_local == local and port == data_port))
-    if task_local == local and port == data_port:
-        return (text_at(0x2a2, 0x2c4), struct.unpack_from('<I', task, 0x2c4)[0])
+    if task_local != local:
+        emit('task_rejected', token=token, reason='Task names a different local interface')
+        return None
+    if not 1 <= port <= 65535 or not token:
+        raise ValueError('Invalid task port or empty token')
+    if peer:
+        address = ipaddress.IPv4Address(peer)
+        if address.is_unspecified or address.is_multicast or address.is_reserved:
+            raise ValueError('Invalid task sender address')
+    return ReceiveTask(token, struct.unpack_from('<I', task, 0x2c4)[0], task_local, peer, port)
 
 
 def completion_report(local, subtype, folder):
@@ -225,48 +248,98 @@ def completion_report(local, subtype, folder):
 
 
 class NodeReports:
-    """Associate a data transfer with one task on the current node connection."""
+    """Track task identity per listener; never report across node generations."""
     def __init__(self):
         self.lock = threading.Condition()
-        self.task = None
-        self.pending = None
+        self.tasks = {}
+        self.pending = {}
+        self.ready_needed = False
 
     def reset(self):
         with self.lock:
-            self.task = self.pending = None
+            self.tasks.clear()
+            self.pending.clear()
+            self.ready_needed = False
+            self.lock.notify_all()
 
     def assign(self, task):
         with self.lock:
-            self.task = (object(), *task)
-            self.pending = None
+            current = self.tasks.get(task.port)
+            if current is not None:
+                # Retransmitting the same task cannot replace an active identity.
+                old = current[0]
+                return (old.token, old.subtype, old.local, old.peer) == (
+                    task.token, task.subtype, task.local, task.peer)
+            if len(self.tasks) >= MAX_LISTENERS:
+                return False
+            self.tasks[task.port] = (task, False, time.monotonic())
             self.lock.notify_all()
+            return True
 
-    def snapshot(self):
+    def snapshot(self, port):
         with self.lock:
-            # Task and data arrive on different sockets; allow the node worker
-            # to process an already-arriving task before taking its identity.
-            self.lock.wait_for(lambda: self.task is not None, timeout=1)
-            return self.task
+            current = self.tasks.get(port)
+            return current[0] if current else None
+
+    def claim(self, port, peer, teacher, *, allow_unassigned=False, stop=None):
+        with self.lock:
+            # Tasks/data use separate TCP connections and can arrive out of order.
+            deadline = time.monotonic() + 1
+            while port not in self.tasks and time.monotonic() < deadline:
+                if stop is not None and stop.is_set():
+                    return None, False
+                self.lock.wait(timeout=min(0.1, max(0, deadline - time.monotonic())))
+            current = self.tasks.get(port)
+            if current is None:
+                return None, allow_unassigned and peer == teacher
+            task, claimed, assigned = current
+            if claimed or peer not in (teacher, task.peer):
+                return None, False
+            self.tasks[port] = (task, True, assigned)
+            return task, True
+
+    def abandon(self, task):
+        with self.lock:
+            current = self.tasks.get(task.port) if task is not None else None
+            if current and current[0] is task:
+                del self.tasks[task.port]
+                self.pending.pop(task.port, None)
+                self.ready_needed = True
+
+    def expire(self, emit):
+        expired = []
+        with self.lock:
+            for port, (task, claimed, assigned) in list(self.tasks.items()):
+                if not claimed and time.monotonic() - assigned >= TASK_WAIT_SECONDS:
+                    del self.tasks[port]
+                    expired.append(task)
+                    self.ready_needed = True
+        for task in expired:
+            emit('task_expired', token=task.token, port=task.port,
+                 reason='No data connection within 60 seconds')
 
     def complete(self, task, folder):
         with self.lock:
-            if task is None or task is not self.task:
+            current = self.tasks.get(task.port) if task is not None else None
+            if not current or current[0] is not task:
                 return False
-            self.pending = (task, folder)
+            self.pending[task.port] = (task, folder)
             return True
 
     def send(self, sock, local, emit):
         with self.lock:
-            if self.pending is None:
-                return
-            task, folder = self.pending
-            sock.sendall(completion_report(local, task[2], folder))
-            sock.sendall(READY)
-            self.task = self.pending = None
-        emit('node_report_sent', status=3, token=task[1], directory=str(folder))
+            for port, (task, folder) in list(self.pending.items()):
+                sock.sendall(completion_report(local, task.subtype, folder))
+                sock.sendall(READY)
+                del self.tasks[port]
+                del self.pending[port]
+                emit('node_report_sent', status=3, token=task.token, directory=str(folder))
+            if self.ready_needed:
+                sock.sendall(READY)
+                self.ready_needed = False
 
 
-def node_loop(args, stop, emit, reports=None):
+def node_loop(args, stop, emit, reports=None, listeners=None):
     reports = reports or NodeReports()
     last_error = None
     while not stop.is_set():
@@ -279,6 +352,7 @@ def node_loop(args, stop, emit, reports=None):
                 last_hello = -float('inf')
                 def hello():
                     nonlocal last_hello
+                    reports.expire(emit)
                     reports.send(sock, args.local, emit)
                     if time.monotonic() - last_hello >= 20:
                         sock.sendall(HELLO)
@@ -296,14 +370,24 @@ def node_loop(args, stop, emit, reports=None):
                     emit('node_frame', length=len(payload), sample_hex=payload[:4096].hex())
                     task = node_message(payload, args.local, args.teacher, args.data_port, emit)
                     if task is not None:
-                        reports.assign(task)
+                        try:
+                            if listeners is not None:
+                                listeners.ensure(task.port)
+                            elif task.port != args.data_port:
+                                raise ValueError('Dynamic listener is unavailable')
+                            if not reports.assign(task):
+                                raise ValueError('Another task is active on this data port')
+                            emit('task_listener_ready', token=task.token, local=task.local,
+                                 port=task.port, peer=task.peer)
+                        except (OSError, ValueError) as error:
+                            emit('task_rejected', token=task.token, port=task.port, reason=str(error))
         except (OSError, EOFError, ValueError) as error:
             if not stop.is_set() and str(error) != last_error:
-                emit('node_retry', error=str(error), retry_seconds=5)
+                emit('node_retry', error=str(error), retry_seconds=getattr(args, 'reconnect_delay', 5))
                 last_error = str(error)
         finally:
             reports.reset()
-        stop.wait(5)
+        stop.wait(getattr(args, 'reconnect_delay', 5))
 
 
 class Events:
@@ -324,58 +408,121 @@ class Events:
                 self.bytes += len(line) + 1
 
 
-def accept_loop(listener, args, root, stop, events, reports):
+def accept_loop(listener, args, root, stop, events, reports, retiring=None, busy=None):
+    port = listener.getsockname()[1]
+    retiring = retiring if retiring is not None else threading.Event()
+    busy = busy if busy is not None else threading.Event()
+    task = None
     try:
-        while not stop.is_set():
+        while not stop.is_set() and not retiring.is_set():
             try:
                 sock, peer = listener.accept()
             except socket.timeout:
                 continue
-            with sock:
-                if peer[0] != args.teacher:
-                    events('peer_rejected', peer=peer[0])
-                    continue
-                folder = Path(tempfile.mkdtemp(prefix='transfer-', dir=root))
-                task = reports.snapshot()
-                events('data_connected', peer=peer[0], directory=folder.name)
-                complete = receive_connection(sock, folder, stop,
-                    lambda event, **fields: events(event, transfer=folder.name, **fields))
-                if complete and not reports.complete(task, folder):
-                    events('node_report_skipped', directory=str(folder),
-                           reason='No matching task on the current node connection')
+            busy.set()
+            task = None
+            try:
+                with sock:
+                    if stop.is_set() or retiring.is_set():
+                        continue
+                    task, allowed = reports.claim(port, peer[0], args.teacher,
+                        allow_unassigned=(port == args.data_port), stop=stop)
+                    if not allowed:
+                        events('peer_rejected', peer=peer[0], port=port,
+                               reason='No matching available task for this sender')
+                        continue
+                    folder = Path(tempfile.mkdtemp(prefix='transfer-', dir=root))
+                    events('data_connected', peer=peer[0], port=port,
+                           token=task.token if task else None, directory=folder.name)
+                    complete = receive_connection(sock, folder, stop,
+                        lambda event, **fields: events(event, transfer=folder.name, **fields))
+                    if complete:
+                        if not reports.complete(task, folder):
+                            events('node_report_skipped', directory=str(folder),
+                                   reason='No matching task on the current node connection')
+                    else:
+                        reports.abandon(task)
+            finally:
+                busy.clear()
     except Exception as error:
-        events('listener_error', error=str(error))
+        reports.abandon(task)
+        events('listener_error', port=port, error=str(error))
         stop.set()
+
+
+class Listeners:
+    """Bind task-selected ports only on the configured classroom interface."""
+    def __init__(self, args, root, stop, events, reports):
+        self.args, self.root, self.stop = args, root, stop
+        self.events, self.reports = events, reports
+        self.entries = {}
+
+    def ensure(self, port):
+        if port in self.entries:
+            return
+        if len(self.entries) >= MAX_LISTENERS:
+            # Recycle an idle dynamic port; keep the default listener available.
+            for old, (sock, worker, retiring, busy) in list(self.entries.items()):
+                if old != self.args.data_port and not busy.is_set() and self.reports.snapshot(old) is None:
+                    retiring.set()
+                    worker.join()
+                    sock.close()
+                    del self.entries[old]
+                    self.events('listener_retired', port=old)
+                    break
+            else:
+                raise ValueError('All eight file listeners are busy')
+        sock = socket.socket()
+        try:
+            if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            else:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((self.args.local, port))
+            sock.listen(4)
+            sock.settimeout(0.5)
+            retiring, busy = threading.Event(), threading.Event()
+            worker = threading.Thread(target=accept_loop,
+                args=(sock, self.args, self.root, self.stop, self.events, self.reports, retiring, busy),
+                name=f'file-data-{port}')
+            self.entries[port] = (sock, worker, retiring, busy)
+            worker.start()
+        except BaseException:
+            sock.close()
+            self.entries.pop(port, None)
+            raise
+        self.events('listening', local=self.args.local, port=port, teacher=self.args.teacher,
+                    output=str(self.root))
+
+    def close(self):
+        for sock, worker, retiring, _ in self.entries.values():
+            retiring.set()
+        for sock, worker, _, _ in self.entries.values():
+            worker.join()
+            sock.close()
+        self.entries.clear()
 
 
 @contextmanager
 def receiver(args, stop):
-    """Bind before login; join both file workers when the client disconnects."""
+    """Bind before login and keep receivers alive across management reconnects."""
     output = Path(args.receive_dir).resolve()
     output.mkdir(parents=True, exist_ok=True)
-    with socket.socket() as listener:
-        if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
-            listener.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
-        listener.bind((args.local, args.data_port))
-        listener.listen(4)
-        listener.settimeout(0.5)
-        root = Path(tempfile.mkdtemp(prefix=time.strftime('%Y%m%d-%H%M%S-'), dir=output))
-        events = Events(root / 'events.jsonl')
-        workers = []
-        reports = NodeReports()
-        try:
-            events('listening', local=args.local, port=args.data_port, teacher=args.teacher, output=str(root))
-            for target, arguments, name in (
-                (node_loop, (args, stop, events, reports), 'file-node'),
-                (accept_loop, (listener, args, root, stop, events, reports), 'file-data'),
-            ):
-                worker = threading.Thread(target=target, args=arguments, name=name)
-                worker.start()
-                workers.append(worker)
-            yield events
-        finally:
-            stop.set()
-            for worker in workers:
-                worker.join()
-            events('stopped')
-            events.file.close()
+    root = Path(tempfile.mkdtemp(prefix=time.strftime('%Y%m%d-%H%M%S-'), dir=output))
+    events = Events(root / 'events.jsonl')
+    reports = NodeReports()
+    listeners = Listeners(args, root, stop, events, reports)
+    worker = None
+    try:
+        listeners.ensure(args.data_port)
+        worker = threading.Thread(target=node_loop,
+            args=(args, stop, events, reports, listeners), name='file-node')
+        worker.start()
+        yield events
+    finally:
+        stop.set()
+        if worker:
+            worker.join()
+        listeners.close()
+        events('stopped')
+        events.file.close()

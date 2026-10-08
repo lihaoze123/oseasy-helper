@@ -27,12 +27,12 @@ def header(name, size):
 class FileTests(unittest.TestCase):
     def test_completion_not_reused_after_disconnect_or_new_task(self):
         reports = files.NodeReports()
-        reports.assign(('first', 0))
-        first = reports.snapshot()
+        reports.assign(files.ReceiveTask('first', 0, '127.0.0.1', '', 19100))
+        first = reports.snapshot(19100)
         reports.reset()
         self.assertFalse(reports.complete(first, self.root))
-        reports.assign(('second', 0))
-        second = reports.snapshot()
+        reports.assign(files.ReceiveTask('second', 0, '127.0.0.1', '', 19100))
+        second = reports.snapshot(19100)
         self.assertFalse(reports.complete(first, self.root))
         self.assertTrue(reports.complete(second, self.root))
         reports.reset()

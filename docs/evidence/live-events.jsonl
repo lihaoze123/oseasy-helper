@@ -1,0 +1,87 @@
+{"time": "2026-10-08T15:45:34+0800", "event": "listening", "local": "10.115.1.54", "port": 9100, "teacher": "10.115.4.137", "output": "/tmp/oseasy-helper-test.Umh0EB/received/20261008-154534-h71040u6"}
+{"time": "2026-10-08T15:45:34+0800", "event": "node_retry", "error": "[Errno 111] Connection refused", "retry_seconds": 5}
+{"time": "2026-10-08T15:45:34+0800", "event": "video_listening", "url": "http://127.0.0.1:17779/live.ts", "udp_port": 7778, "group": "229.1.4.137", "local": "10.115.1.54"}
+{"time": "2026-10-08T15:45:34+0800", "event": "login_sent", "note": "TCP connected; teacher acceptance is not yet verified"}
+{"time": "2026-10-08T15:45:34+0800", "event": "management_message", "command": 24, "kind": 0, "extra": 0, "declared_bytes": 0, "body_bytes": 40}
+{"time": "2026-10-08T15:45:34+0800", "event": "management_message", "command": 116, "kind": 0, "extra": 0, "declared_bytes": 103, "body_bytes": 103}
+{"time": "2026-10-08T15:45:34+0800", "event": "management_message", "command": 92, "kind": 0, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:45:34+0800", "event": "management_message", "command": 45, "kind": 0, "extra": 0, "declared_bytes": 354, "body_bytes": 354}
+{"time": "2026-10-08T15:45:34+0800", "event": "management_message", "command": 24, "kind": 0, "extra": 0, "declared_bytes": 0, "body_bytes": 40}
+{"time": "2026-10-08T15:45:34+0800", "event": "management_message", "command": 500, "kind": 0, "extra": 0, "declared_bytes": 103, "body_bytes": 104}
+{"time": "2026-10-08T15:45:34+0800", "event": "management_message", "command": 28, "kind": 0, "extra": 0, "declared_bytes": 0, "body_bytes": 54}
+{"time": "2026-10-08T15:45:34+0800", "event": "video_receiving", "width": 1920, "height": 1080}
+{"time": "2026-10-08T15:45:37+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:45:37+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:45:42+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:45:42+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:45:47+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:45:47+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:45:52+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:45:52+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:45:57+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:45:57+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:46:02+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:46:02+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:46:07+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:46:07+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:46:12+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:46:12+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:46:17+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:46:17+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:46:22+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:46:22+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:46:27+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:46:27+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:46:32+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:46:32+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:46:37+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:46:37+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:46:42+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:46:42+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:46:47+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:46:47+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:46:52+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:46:52+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:46:57+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:46:57+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:47:02+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:47:02+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:47:07+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:47:07+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:47:12+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:47:12+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:47:15+0800", "event": "management_message", "command": 24, "kind": 0, "extra": 0, "declared_bytes": 0, "body_bytes": 40}
+{"time": "2026-10-08T15:47:17+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:47:17+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:47:22+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:47:22+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:47:27+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:47:27+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:47:32+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:47:32+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:47:37+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:47:37+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:47:42+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:47:42+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:47:47+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:47:47+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:47:52+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:47:52+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:47:57+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:47:57+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:48:00+0800", "event": "management_message", "command": 24, "kind": 0, "extra": 0, "declared_bytes": 0, "body_bytes": 40}
+{"time": "2026-10-08T15:48:02+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:48:02+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:48:07+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:48:07+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:48:12+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:48:12+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:48:17+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:48:17+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:48:22+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:48:22+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:48:27+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:48:27+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:48:32+0800", "event": "management_message", "command": 89, "kind": 64, "extra": 0, "declared_bytes": 0, "body_bytes": 0}
+{"time": "2026-10-08T15:48:32+0800", "event": "mock_thumbnail_sent", "bytes": 2040, "width": 64, "height": 64}
+{"time": "2026-10-08T15:48:34+0800", "event": "stopped"}

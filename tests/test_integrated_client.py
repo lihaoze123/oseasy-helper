@@ -23,7 +23,7 @@ class IntegratedClientTests(unittest.TestCase):
             reserve.close()
             args = SimpleNamespace(local='127.0.0.1', teacher='127.0.0.1',
                 port=management.getsockname()[1], node_port=node.getsockname()[1],
-                data_port=data_port, receive_dir=folder, mock_thumbnail=False)
+                data_port=data_port, receive_dir=folder, mock_thumbnail=False, once=True)
             errors = []
             def run():
                 try:
@@ -70,6 +70,9 @@ class IntegratedClientTests(unittest.TestCase):
                     worker.join(6)
                 self.assertFalse(worker.is_alive())
                 self.assertEqual(errors, [])
-                self.assertFalse(any(t.name in ('file-node', 'file-data') for t in threading.enumerate()))
+                self.assertFalse(any(t.name == 'file-node' or t.name.startswith('file-data-')
+                                     for t in threading.enumerate()))
                 with socket.socket() as check:
+                    if not hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
+                        check.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                     check.bind(('127.0.0.1', data_port))
