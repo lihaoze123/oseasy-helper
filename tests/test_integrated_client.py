@@ -23,7 +23,8 @@ class IntegratedClientTests(unittest.TestCase):
             reserve.close()
             args = SimpleNamespace(local='127.0.0.1', teacher='127.0.0.1',
                 port=management.getsockname()[1], node_port=node.getsockname()[1],
-                data_port=data_port, receive_dir=folder, mock_thumbnail=False, once=True)
+                data_port=data_port, receive_dir=str(Path(folder) / 'received'),
+                mock_thumbnail=False, once=True)
             errors = []
             def run():
                 try:
@@ -64,6 +65,8 @@ class IntegratedClientTests(unittest.TestCase):
                         self.assertEqual(report[0x408:0x458], b'127.0.0.1' + bytes(71))
                         self.assertEqual(struct.unpack_from('<I', report, 0x458)[0], 9)
                         saved = next(Path(folder).rglob('example.txt')).parent
+                        self.assertEqual(saved.parent, Path(args.receive_dir))
+                        self.assertFalse(list(Path(folder).rglob('*.jsonl')))
                         self.assertEqual(report[0x45c:].decode('utf-16le'), str(saved) + '\\\0')
                         self.assertEqual(files.read_frame(tasks, stop), struct.pack('<I', 7))
                 finally:

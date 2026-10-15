@@ -4,6 +4,8 @@ from dataclasses import dataclass
 import hashlib
 import ipaddress
 import json
+import logging
+from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
 import socket
@@ -21,6 +23,28 @@ HELLO = struct.pack('<II', 4, 6)
 READY = struct.pack('<II', 4, 7)
 MAX_LISTENERS = 8
 TASK_WAIT_SECONDS = 60
+LOG_MAX_BYTES = 4 * 1024 * 1024
+LOG_BACKUPS = 2
+DIAGNOSTIC_EVENTS = frozenset({
+    'management_message', 'mock_thumbnail_sent', 'receive_directory_sent',
+    'node_frame', 'node_ignored', 'node_connected', 'node_ready',
+    'receive_task', 'task_listener_ready', 'listener_retired',
+    'data_connected', 'directory', 'file_begin', 'node_report_sent',
+})
+WARNING_EVENTS = frozenset({
+    'node_retry', 'disconnected', 'management_retry', 'task_rejected',
+    'task_expired', 'peer_rejected', 'file_partial', 'video_unavailable',
+    'node_report_skipped',
+})
+ERROR_EVENTS = frozenset({'data_error', 'listener_error', 'video_error'})
+
+
+def event_level(event):
+    if event in ERROR_EVENTS:
+        return logging.ERROR
+    if event in WARNING_EVENTS:
+        return logging.WARNING
+    return logging.DEBUG if event in DIAGNOSTIC_EVENTS else logging.INFO
 
 
 @dataclass(eq=False, frozen=True)
@@ -102,13 +126,23 @@ def counted_bytes(payload, offset):
 
 class Transfer:
     """One sequential transfer; ACK only after successfully storing an entry."""
-    def __init__(self, root, emit):
+    def __init__(self, root, emit, *, prepare_root=None):
         self.root = Path(root)
+        self.prepare_root = prepare_root
         self.emit = emit
         self.file = None
         self.total = 0
         self.entries = 0
         self.done = False
+
+    def entry_path(self, raw):
+        # Validate before allocating a batch, including malformed first entries.
+        path = safe_path(self.root, raw)
+        if self.prepare_root is not None:
+            self.root = self.prepare_root()
+            self.prepare_root = None
+            path = safe_path(self.root, raw)
+        return path
 
     def close(self):
         if self.file is not None:
@@ -128,7 +162,7 @@ class Transfer:
             if self.entries > MAX_ENTRIES:
                 raise ValueError('Transfer entry limit exceeded')
             if opcode == 3:
-                path = safe_path(self.root, counted_bytes(payload, 4))
+                path = self.entry_path(counted_bytes(payload, 4))
                 path.mkdir(parents=True, exist_ok=True)
                 self.emit('directory', path=str(path.relative_to(self.root)))
                 return 1
@@ -137,7 +171,7 @@ class Transfer:
             self.expected, = struct.unpack_from('<Q', payload, 4)
             if self.expected > MAX_TRANSFER_BYTES - self.total:
                 raise ValueError('Transfer exceeds 8 GiB limit')
-            self.path = safe_path(self.root, counted_bytes(payload, 12))
+            self.path = self.entry_path(counted_bytes(payload, 12))
             if self.path.exists():
                 raise FileExistsError(f'Will not overwrite {self.path.name!r}')
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -184,8 +218,8 @@ class Transfer:
         return None
 
 
-def receive_connection(sock, root, stop, emit):
-    transfer = Transfer(root, emit)
+def receive_connection(sock, root, stop, emit, *, prepare_root=None):
+    transfer = Transfer(root, emit, prepare_root=prepare_root)
     payload = b''
     sock.settimeout(0.5)
     try:
@@ -391,21 +425,32 @@ def node_loop(args, stop, emit, reports=None, listeners=None):
 
 
 class Events:
-    def __init__(self, path):
-        self.file = path.open('x', encoding='utf-8')
+    def __init__(self, path=None, *, level='INFO'):
+        self.level = getattr(logging, level.upper())
+        self.handler = None
+        if path is not None:
+            path = Path(path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self.handler = RotatingFileHandler(path, maxBytes=LOG_MAX_BYTES,
+                backupCount=LOG_BACKUPS, encoding='utf-8')
         self.lock = threading.Lock()
-        self.bytes = 0
 
     def __call__(self, event, **fields):
-        line = json.dumps(dict(time=time.strftime('%Y-%m-%dT%H:%M:%S%z'), event=event, **fields),
+        level = event_level(event)
+        if level < self.level:
+            return
+        line = json.dumps(dict(time=time.strftime('%Y-%m-%dT%H:%M:%S%z'),
+                              level=logging.getLevelName(level), event=event, **fields),
                           ensure_ascii=True)
         with self.lock:
-            if event != 'node_frame':
-                print(line, flush=True)
-            if self.bytes < 16 * 1024 * 1024:
-                self.file.write(line + '\n')
-                self.file.flush()
-                self.bytes += len(line) + 1
+            print(line, flush=True)
+            if self.handler is not None:
+                self.handler.handle(logging.LogRecord(__name__, level, '', 0,
+                    line, (), None))
+
+    def close(self):
+        if self.handler is not None:
+            self.handler.close()
 
 
 def accept_loop(listener, args, root, stop, events, reports, retiring=None, busy=None):
@@ -431,14 +476,23 @@ def accept_loop(listener, args, root, stop, events, reports, retiring=None, busy
                         events('peer_rejected', peer=peer[0], port=port,
                                reason='No matching available task for this sender')
                         continue
-                    folder = Path(tempfile.mkdtemp(prefix='transfer-', dir=root))
+                    folder = None
+                    def prepare_root():
+                        nonlocal folder
+                        root.mkdir(parents=True, exist_ok=True)
+                        folder = Path(tempfile.mkdtemp(prefix=time.strftime('%Y%m%d-%H%M%S-'), dir=root))
+                        return folder
+
+                    def emit_transfer(event, **fields):
+                        events(event, transfer=folder.name if folder else None, **fields)
+
                     events('data_connected', peer=peer[0], port=port,
-                           token=task.token if task else None, directory=folder.name)
-                    complete = receive_connection(sock, folder, stop,
-                        lambda event, **fields: events(event, transfer=folder.name, **fields))
+                           token=task.token if task else None)
+                    complete = receive_connection(sock, root, stop, emit_transfer,
+                                                  prepare_root=prepare_root)
                     if complete:
-                        if not reports.complete(task, folder):
-                            events('node_report_skipped', directory=str(folder),
+                        if not reports.complete(task, folder or root):
+                            events('node_report_skipped', directory=str(folder or root),
                                    reason='No matching task on the current node connection')
                     else:
                         reports.abandon(task)
@@ -507,11 +561,10 @@ class Listeners:
 def receiver(args, stop):
     """Bind before login and keep receivers alive across management reconnects."""
     output = Path(args.receive_dir).resolve()
-    output.mkdir(parents=True, exist_ok=True)
-    root = Path(tempfile.mkdtemp(prefix=time.strftime('%Y%m%d-%H%M%S-'), dir=output))
-    events = Events(root / 'events.jsonl')
+    level = 'DEBUG' if getattr(args, 'verbose', False) else getattr(args, 'log_level', 'INFO')
+    events = Events(getattr(args, 'log_file', None), level=level)
     reports = NodeReports()
-    listeners = Listeners(args, root, stop, events, reports)
+    listeners = Listeners(args, output, stop, events, reports)
     worker = None
     try:
         listeners.ensure(args.data_port)
@@ -525,4 +578,4 @@ def receiver(args, stop):
             worker.join()
         listeners.close()
         events('stopped')
-        events.file.close()
+        events.close()

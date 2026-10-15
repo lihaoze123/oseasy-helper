@@ -1,4 +1,7 @@
+import contextlib
 import hashlib
+import io
+import json
 import socket
 import struct
 import tempfile
@@ -6,7 +9,7 @@ import threading
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from oseasy_helper import files
 
@@ -176,6 +179,96 @@ class FileTests(unittest.TestCase):
                 transfer.handle(packet(2, counted(b'123'))[4:])
         finally:
             transfer.close()
+
+    def test_batch_created_only_for_valid_entries_and_reused(self):
+        output = self.root / 'received'
+        batch = output / 'batch'
+        def prepare():
+            batch.mkdir(parents=True)
+            return batch
+        prepare_root = Mock(side_effect=prepare)
+        transfer = files.Transfer(output, self.emit, prepare_root=prepare_root)
+        for payload in (header('../escape', 0)[4:], header('huge', files.MAX_TRANSFER_BYTES + 1)[4:],
+                        packet(3, counted(b'../escape'))[4:]):
+            with self.assertRaises(ValueError):
+                transfer.handle(payload)
+        prepare_root.assert_not_called()
+        self.assertFalse(output.exists())
+        transfer.handle(packet(3, counted('课堂'.encode()))[4:])
+        transfer.handle(header('课堂/empty.txt', 0)[4:])
+        self.assertEqual(transfer.handle(packet(2, counted(b''))[4:]), 1)
+        self.assertEqual(transfer.handle(packet(4)[4:]), 2)
+        prepare_root.assert_called_once_with()
+        self.assertEqual((batch / '课堂/empty.txt').read_bytes(), b'')
+
+    def test_empty_transfer_does_not_allocate_batch(self):
+        prepare = Mock()
+        transfer = files.Transfer(self.root / 'received', self.emit, prepare_root=prepare)
+        self.assertEqual(transfer.handle(packet(4)[4:]), 2)
+        prepare.assert_not_called()
+        self.assertFalse((self.root / 'received').exists())
+
+    def test_repeated_startup_creates_no_directories_or_logs(self):
+        output = self.root / 'received'
+        for _ in range(2):
+            with socket.socket() as probe:
+                probe.bind(('127.0.0.1', 0))
+                port = probe.getsockname()[1]
+            args = SimpleNamespace(local='127.0.0.1', teacher='127.0.0.1',
+                                   data_port=port, receive_dir=output)
+            with patch('oseasy_helper.files.node_loop'), contextlib.redirect_stdout(io.StringIO()):
+                with files.receiver(args, threading.Event()):
+                    self.assertFalse(output.exists())
+            self.assertEqual(list(self.root.iterdir()), [])
+
+    def test_event_levels_filter_console_and_file(self):
+        path = self.root / 'logs/events.jsonl'
+        output = io.StringIO()
+        events = files.Events(path, level='WARNING')
+        try:
+            with contextlib.redirect_stdout(output):
+                for event in ('node_frame', 'mock_thumbnail_sent', 'file_saved',
+                              'node_retry', 'file_partial', 'data_error', 'video_error'):
+                    events(event)
+        finally:
+            events.close()
+        console = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertEqual(console, [json.loads(line) for line in path.read_text().splitlines()])
+        self.assertEqual([item['level'] for item in console], ['WARNING', 'WARNING', 'ERROR', 'ERROR'])
+        self.assertEqual([item['event'] for item in console],
+                         ['node_retry', 'file_partial', 'data_error', 'video_error'])
+
+    def test_default_logging_hides_protocol_noise_and_debug_enables_it(self):
+        for level, expected in (('INFO', ['file_saved']), ('DEBUG', ['mock_thumbnail_sent', 'file_saved'])):
+            output = io.StringIO()
+            events = files.Events(level=level)
+            with contextlib.redirect_stdout(output):
+                events('mock_thumbnail_sent')
+                events('file_saved')
+            self.assertEqual([json.loads(line)['event'] for line in output.getvalue().splitlines()], expected)
+        self.assertEqual(list(self.root.iterdir()), [])
+
+    def test_log_appends_across_restarts_and_rotates_with_bounded_backups(self):
+        path = self.root / 'events.jsonl'
+        with contextlib.redirect_stdout(io.StringIO()):
+            for event in ('listening', 'stopped'):
+                events = files.Events(path)
+                try:
+                    events(event)
+                finally:
+                    events.close()
+            self.assertEqual([json.loads(line)['event'] for line in path.read_text().splitlines()],
+                             ['listening', 'stopped'])
+            with patch('oseasy_helper.files.LOG_MAX_BYTES', 256):
+                events = files.Events(path)
+                try:
+                    for index in range(20):
+                        events('file_saved', index=index)
+                finally:
+                    events.close()
+        self.assertEqual(len(list(self.root.glob('events.jsonl*'))), 3)
+        self.assertLess(path.stat().st_size, 256)
+        self.assertEqual(json.loads(path.read_text().splitlines()[-1])['index'], 19)
 
     def test_node_handshake_receive_task_and_upload_ignored(self):
         with socket.socket() as server:

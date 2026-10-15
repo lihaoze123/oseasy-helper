@@ -100,7 +100,6 @@ def run(args, stop=None):
     stop = stop if stop is not None else threading.Event()
     mac = getattr(args, 'mac', None) or interface_mac(args.local)
     receive_dir = Path(args.receive_dir).resolve()
-    receive_dir.mkdir(parents=True, exist_ok=True)
     jpeg = (Path(__file__).with_name('mock-thumbnail.jpg').read_bytes()
             if args.mock_thumbnail else None)
     # Validate identity/path fields before opening any network services.

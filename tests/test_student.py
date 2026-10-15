@@ -63,6 +63,7 @@ class StudentTests(unittest.TestCase):
                 '--port', str(management.getsockname()[1]), '--node-port', str(node.getsockname()[1]),
                 '--data-port', str(data_port), '--http-port', str(http_port),
                 '--udp-port', str(unused_port(socket.SOCK_DGRAM)), '--receive-dir', folder,
+                '--log-file', str(Path(folder) / 'events.jsonl'),
                 '--mac', '02:00:00:00:00:01']
             proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             try:
@@ -90,6 +91,7 @@ class StudentTests(unittest.TestCase):
             args = SimpleNamespace(local='127.0.0.1', teacher='127.0.0.1',
                 port=management.getsockname()[1], node_port=node.getsockname()[1],
                 data_port=unused_port(), receive_dir=folder, mock_thumbnail=True,
+                log_file=Path(folder) / 'events.jsonl', log_level='DEBUG',
                 reconnect_delay=0.1, once=False, with_video=True,
                 udp_port=unused_port(socket.SOCK_DGRAM), http_port=unused_port(),
                 mac='02:00:00:00:00:01', name='TEST-PC', user='test')
@@ -247,6 +249,7 @@ class StudentTests(unittest.TestCase):
             args = SimpleNamespace(local='127.0.0.1', teacher='127.0.0.1',
                 port=management.getsockname()[1], node_port=node.getsockname()[1],
                 data_port=unused_port(), receive_dir=folder, mock_thumbnail=False,
+                log_file=Path(folder) / 'events.jsonl', log_level='DEBUG',
                 reconnect_delay=0.1, management_idle_timeout=0.1, with_video=True,
                 udp_port=unused_port(socket.SOCK_DGRAM), http_port=occupied.getsockname()[1],
                 mac='02:00:00:00:00:01')

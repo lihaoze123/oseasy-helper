@@ -63,6 +63,13 @@ def parser():
         login.add_argument("--port", type=port, default=9003)
         login.add_argument("--receive-dir", default="received",
                        help="Receiving directory (default: received)")
+        login.add_argument('--verbose', action='store_true',
+                           help='Enable DEBUG logging (overrides --log-level)')
+        login.add_argument('--log-level', type=str.upper,
+                           choices=('DEBUG', 'INFO', 'WARNING', 'ERROR'), default='INFO',
+                           help='Minimum level for console and file logs (default: INFO)')
+        login.add_argument('--log-file',
+                           help='Append JSONL logs; rotate at 4 MiB, keep 2 backups (default: no file)')
         login.add_argument("--node-port", type=port, default=8555)
         login.add_argument("--data-port", type=port, default=9100)
         login.add_argument("--mock-thumbnail", action=argparse.BooleanOptionalAction, default=True,

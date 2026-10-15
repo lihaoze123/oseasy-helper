@@ -43,7 +43,19 @@ class CliTests(unittest.TestCase):
         self.assertEqual(receive.call_args.args[0].node_port, 8555)
         self.assertTrue(receive.call_args.args[0].mock_thumbnail)
         self.assertFalse(receive.call_args.args[0].with_video)
+        self.assertEqual(receive.call_args.args[0].log_level, 'INFO')
+        self.assertIsNone(receive.call_args.args[0].log_file)
+        self.assertFalse(receive.call_args.args[0].verbose)
         control.assert_not_called()
+
+    def test_logging_options(self):
+        with patch('oseasy_helper.cli.client.run') as run:
+            self.assertEqual(main(['client', '--teacher', '203.0.113.10', '--local', '192.0.2.20',
+                                   '--log-level', 'warning', '--log-file', 'logs/client.jsonl']), 0)
+        self.assertEqual(run.call_args.args[0].log_level, 'WARNING')
+        self.assertEqual(run.call_args.args[0].log_file, 'logs/client.jsonl')
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            main(['client', '--teacher', '203.0.113.10', '--local', '192.0.2.20', '--log-level', 'bad'])
 
     def test_student_defaults_and_identity_overrides(self):
         with patch('oseasy_helper.cli.client.run') as run:
